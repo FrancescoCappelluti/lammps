@@ -1,5 +1,30 @@
 In "fresp_types.dat", the row following #ntypes expresses the number of F-RESP atom types.
-In the shown case, they are 3 because the two hydrogen atoms of water are considered, for the sake of generality, to have different types.
-The rows after #atypes express the mapping between atomic indexes (thse present in Lammps data file) and F-RESP types.
+In the shown case, they are 3 because the two hydrogen atoms of water are considered, 
+for the sake of generality, to have different types.
+The rows after #atypes express the mapping between atomic indexes (those present in Lammps 
+data file) and F-RESP types.
 
-In "polarparm.dat", 
+In "polarparm.dat", the rows following #q0 express the mapping between F-RESP types 
+(that start from 0) and their q0 charges.
+The rows following #qgen express the mapping between F-RESP types and their qgen charges.
+Each rows following #k_Efield contain, as first entry, the F-RESP type of one extreme of 
+the considered bond, as second entry, the F-RESP type of the other extreme of the bond, 
+as third entry, the F-RESP type of the atom whose charge is influenced by the fictitious 
+electric field along that bond and eventually, as last entry, the coefficient that 
+correlates the fictitious electric field along the bond with the charge variation.
+The meaning of the entries in the rows following #k_bond are the same except that, 
+in this case, the last entry expresses the coefficient correlating the stretching of 
+the bond from its natural value with the charge variation.
+In the shown case, coefficients from #k_Efield are those we found for TIP3P water 
+(expressed in LAMMPS electron units); coefficients from #k_bond are 0 because, also if 
+we implemented this feature, we only tried F-RESP on TIP3P water, in which bonds are rigid.
+
+For the couples of bonds and atoms (expressed in F-RESP types) for which no coefficient 
+has been specified, 0 is assumed.
+
+AUTHORS
+
+Francesco Cappelluti, "L'Aquila University"
+  francesco.cappelluti@graduate.univaq.it
+Daniele Ottaviani, "Cineca"
+

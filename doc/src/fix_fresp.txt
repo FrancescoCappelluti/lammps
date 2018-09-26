@@ -1,0 +1,136 @@
+"LAMMPS WWW Site"_lws - "LAMMPS Documentation"_ld - "LAMMPS Commands"_lc :c
+
+:link(lws,http://lammps.sandia.gov)
+:link(ld,Manual.html)
+:link(lc,Commands_all.html)
+
+:line
+
+fix fresp/ewald command :h3
+fix fresp/dsf command :h3
+
+[Syntax:]
+
+fix ID group-ID style Nevery cutoff3 alpha filename1 filename2 keyword ... :pre
+
+ID, group-ID are documented in "fix"_fix.html command :ulb,l
+style = {fresp/ewald} or {fresp/dsf} :l
+Nevery = perform charge update every this many steps :l
+cutoff3 = cutoff for fictitious electric field calculation (distance unit) :l
+filename1 = name of the file containing the mapping between global atomic indexes and F-RESP types :l
+filename2 = name of the file containing F-RESP parameters used for charge update :l
+alpha = parameter used by Fennell's potential (fresp/dsf only) :l
+
+zero or more keyword/value pairs may be appended :l
+keyword = {g_ewald} or {kmax} or {damp} :l
+  {g_ewald} value =  same as in "kspace_modify"_kspace_modify.html, gewald used by Ewald summation for fictitious electric field calculation (fresp(ewald only)
+  {kmax} value value value = same as in "kspace_modify"_kspace_modify.html, kmax used by Ewald summation for fictitious electric field calculation (fresp/ewald only)
+  {damp} type cutoff1 cutoff2 = type can be "sin" or "exp" :pre
+
+:ule
+
+[Examples:]
+
+fix 1 all fresp/ewald 1 8 fresp_types.dat polarparm.dat damp sin 0.3 2.0
+fix 1 all fresp/dsf 1 12 0.1 fresp_types.dat polarparm.dat damp exp 0.5 2.0
+
+[Description:]
+
+Permits to perform a fluctuating charges polarization using F-RESP 
+technique developed in the group of Prof. L. Guidoni at L'Aquila 
+University. An article describing this method is about to be 
+submitted.
+
+These fixes can be used only with "pair style"_pair_style.html 
+"pair_lj_cut_coul_long"_pair_lj_cut_coul_long.html and with a main 
+cutoff that is slightly longer than F-RESP cutoff.
+
+F-RESP method requires a few parameters that have to be provided in two
+files specified by {filename1} and {filename2}. {filename1} has the 
+following format
+
+#natypes
+Nfresptypes
+#atypes
+1 t1
+...
+Natoms tn
+
+{Nfresptypes} = number of F-RESP types
+{t1} = F-RESP type of the first atom
+{tn} = F-RESP type of the Natoms-th atom
+
+Pay attention that F-RESP types start from 0.
+
+{filename2} has the following format
+
+#q0
+0 q0_0
+...
+Nfresptypes q0_n
+#qgen
+0 qgen_0
+...
+Nfresptypes qgen_n
+#k_Efield
+i j k l
+...
+#k_bond
+i j k m
+
+{q0_0} = q0 charge of the first (0) F-RESP type
+{q0_n} = q0 charge of the Nfresptypes-th (Nfresptype - 1) F-RESP type
+{qgen_0} = qgen charge of the first (0) F-RESP type
+{qgen_n} = qgen charge of the Nfresptype-th (Nfresptype - 1) F-RESP type
+{i} = F-RESP type of one extreme of the bond
+{j} = F-RESP type of the other extreme of the bond
+{k} = F-RESP type of the atom whose charge is influenced by the previous 
+defined bond (only if contained in the same molecule)
+{l} = value of the coefficient connecting fictitious electric field projection 
+along bond and charge variation
+{m} = value of the coefficient connecting stretching of the bond from its 
+natural value and charge variation
+
+As it is clear from the previous lines, charges of atoms with F-RESP type {k} 
+will depend on all bonds between atoms with F-RESP types {i} and {j}. 
+Following from this, equivalence in actual F-RESP implementation is more strict 
+than classical chemical equivalence and bonds that are chemically equivalent 
+could not have the same F-RESP types for their extremes if the charge variation 
+effects they will produce are not wanted to be the same.
+
+The {fresp/ewald} style calculates the fictitious electric field over 
+bonds by using Ewald summation technique. If {g_ewald} keyword is not 
+specified, {g_ewald} of the main electrostatic calculation is assumed. 
+If {kmax} keyword is not specified, it is estimated as a function of 
+gewald, main accuracy and box dimensions as in main Ewald calculation.
+
+The {fresp/dsf} style calculates the fictitious electric field over 
+bonds by using DSF technique_#Fennell1.
+
+[Restart, fix_modify, output, run start/stop, minimize info:]
+
+No information about these fixes is written to "binary restart
+files"_restart.html.  No global scalar or vector or per-atom
+quantities are stored by these fixes for access by various "output
+commands"_Howto_output.html.  No parameter of these fixes can be used
+with the {start/stop} keywords of the "run"_run.html command.
+
+[Restrictions:]
+
+These fixes are part of the USER-FRESP package.  They are only enabled if
+LAMMPS was built with that package.  See the "Build
+package"_Build_package.html doc page for more info.
+
+[Related commands:]
+
+[Default:] none
+
+:line
+
+:link(Fennell1)
+[(Fennell and Gezelter)] C. J. Fennell, and J. D. Gezelter, 
+J Physical Chemistry, 124:23, 234104 (2006).
+
+:link(Cappelluti)
+[(F-RESP)] F. Cappelluti, D. Ottaviani, D. Di Girolamo, A. Di Luca, 
+and L. Guidoni, in preparation
