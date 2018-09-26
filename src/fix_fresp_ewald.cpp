@@ -1207,6 +1207,7 @@ void FixFRespEwald::q_update_Efield_bond()
     atom1_t = types[global_atom1 - 1];
     atom2_t = types[global_atom2 - 1];
    
+    //Declaring bondv as xb1 - xb2 makes it as H->O for water
     bondv[0] = x[atom1][0] - x[atom2][0];
     bondv[1] = x[atom1][1] - x[atom2][1];
     bondv[2] = x[atom1][2] - x[atom2][2];
