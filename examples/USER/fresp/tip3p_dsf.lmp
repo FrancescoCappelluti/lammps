@@ -24,8 +24,8 @@ neigh_modify	every 1 delay 8 check yes
 
 velocity all create 1.0 4928229 mom yes rot yes dist gaussian
 
-fix     1 all fresp/dsf 1 12.5 0.095 fresp_types.dat polarparm.dat
-fix		2 all nvt temp 1 1 200
+fix     1 all fresp/dsf 1 12.5 0.095 fresp_types.dat polarparm.dat damp exp 0.3 2.0
+fix		2 all nvt temp 1 200 200
 fix		4 all shake 0.0001 20 0 b 1 a 1
 
 timestep	2.0
