@@ -38,7 +38,21 @@ fix 1 all fresp/dsf 1 12 0.1 fresp_types.dat polarparm.dat damp exp 0.5 2.0
 
 Permits to perform a fluctuating charges polarization using F-RESP 
 technique developed in the group of Prof. L. Guidoni at L'Aquila 
-University. An article describing this method is about to be 
+University. In this very simple model, atomic charges depend on the 
+electric fields exerted along the bonds of the molecule they belong to 
+by the expression:
+
+:c,image(Eqs/fix_fresp1.jpg)
+
+Electric field is not, however, the electric field exerted by the 
+charges the system contains at the current timestep because this 
+would require an expensive iterative calculation or the use 
+of a Lagrangian approach. What is used, rather, is a "fictitious" 
+electric field, created using the positions of the system in the 
+current timestep but fixed "generating" charges, that are specified 
+as parameters.
+
+An article describing this method is about to be 
 submitted.
 
 These fixes can be used only with "pair style"_pair_style.html 
