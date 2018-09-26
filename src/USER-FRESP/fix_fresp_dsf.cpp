@@ -158,7 +158,7 @@ void FixFRespDsf::q_update_Efield_bond()
     atom1_t = types[global_atom1 - 1];
     atom2_t = types[global_atom2 - 1];
    
-    //Declaring bondv as xb1 - xb2 makes it as O->H for water
+    //Declaring bondv as xb1 - xb2 makes it as H->O for water
     bondv[0] = x[atom1][0] - x[atom2][0];
     bondv[1] = x[atom1][1] - x[atom2][1];
     bondv[2] = x[atom1][2] - x[atom2][2];
@@ -521,10 +521,8 @@ void FixFRespDsf::pre_reverse(int eflag, int vflag)
   tagint der_atom, global_atom1, global_atom2, global_center, center;
   bigint molecule;
   double alpha, alpha_tot_pot, v[6], deltaf[3];
-  //NUOVO
   double kb, kb_tot_pot, bondv[3], bondvinv;
   int atom1, atom2, atom1_pos, atom2_pos;
-  //NUOVO
 
   // energy and virial setup
   if (vflag) v_setup(vflag);
@@ -540,7 +538,6 @@ void FixFRespDsf::pre_reverse(int eflag, int vflag)
     global_atom2 = atom->tag[dEr_indexes[bond][0][2]];
     atom1_t = types[global_atom1 - 1];
     atom2_t = types[global_atom2 - 1];
-    //NUOVO
     if (bondflag) {
       atom1 = dEr_indexes[bond][0][1];
       atom2 = dEr_indexes[bond][0][2];
@@ -555,7 +552,6 @@ void FixFRespDsf::pre_reverse(int eflag, int vflag)
       bondvinv = 1.0 / MathExtra::len3(bondv);
       #endif
     }
-    //NUOVO
     for (i = 0; i < dEr_indexes[bond][0][0]; i++) {
       if (dEr_indexes[bond][i + 1][1] == (tagint)-1) continue;
       der_atom = dEr_indexes[bond][i + 1][0];
@@ -570,7 +566,6 @@ void FixFRespDsf::pre_reverse(int eflag, int vflag)
         deltaf[0] = -dEr_vals[bond][i][0] * alpha_tot_pot;
         deltaf[1] = -dEr_vals[bond][i][1] * alpha_tot_pot;
         deltaf[2] = -dEr_vals[bond][i][2] * alpha_tot_pot;
-        //NUOVO
         if (bondflag && (i == atom1_pos || i == atom2_pos)) {
           kb = k_bond[atom1_t][atom2_t][center_t];
           if (i == atom2_pos) kb *= -1.0; //Force contribution coming from bond stretching is reversed if atom2 is considered
@@ -579,7 +574,6 @@ void FixFRespDsf::pre_reverse(int eflag, int vflag)
           deltaf[1] -= bondv[1] * kb_tot_pot * bondvinv;
           deltaf[2] -= bondv[2] * kb_tot_pot * bondvinv;
         }
-        //NUOVO
         MathExtra::add3(atom->f[der_atom], deltaf, atom->f[der_atom]);
 
         if (evflag) {
