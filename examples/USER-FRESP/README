@@ -1,0 +1,5 @@
+In "fresp_types.dat", the row following #ntypes expresses the number of F-RESP atom types.
+In the shown case, they are 3 because the two hydrogen atoms of water are considered, for the sake of generality, to have different types.
+The rows after #atypes express the mapping between atomic indexes (thse present in Lammps data file) and F-RESP types.
+
+In "polarparm.dat", 

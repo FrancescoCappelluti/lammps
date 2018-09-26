@@ -1,0 +1,27 @@
+This is a fix for LAMMPS that implements the possibility of performing a fluctuating charges MD simulation in the framework of F-RESP technique developed by the group of Prof. L. Guidoni at L'Aquila University (Italy).
+In this technique, atom charges are function of electric field exercised along the bonds of the molecule they belong to by all the atoms in the system.
+
+Electric field that influences charge value can be calculated in two ways: in the first case, Ewald summation technique is employed while, in the second, the relatively recent Fennell's modification of Wolf summation (aka DSF) technique (Fennell, C. J., & Gezelter, J. D. (2006). Is the Ewald summation still necessary? Pairwise alternatives to the accepted standard for long-range electrostatics. The Journal of chemical physics, 124(23), 234104).
+An article describing accurately this technique is about to be submitted.
+
+F-RESP technique can be used by adding the subsequent line to LAMMPS input file:
+
+fix ID all fresp/ewald nevery c3 filename1 filename2 (g_ewald a kmax kx ky kz damp c1 c2)
+
+or
+
+fix ID all fresp/dsf nevery c3 alpha filename1 filename2 (damp type c1 c2)
+
+where ID is the ID that LAMMPS assign to the fix, nevery is how often the fix is applied, c3 is the cutoff in real space (total cutoff in the case of Fennell's potential) used for the calculation of electric field which influences charge variation.
+filename1 is the name of the file containing the mapping between global atomic indexes and F-RESP types indexes and filename2 is the name of the file containing F-RESP parameters used for charge update.
+In the case of Fennell's potential, alpha is the alpha coefficient used for the evaluation of electric field over bonds.
+
+gewald, kmax and damp are optional arguments connected to the evaluation of electric field over bonds in reciprocal space that have the same meaning of kspace arguments; if gewald is not specified, main gewald is assumed and if kmax is not specified, it is estimated as a function of gewald, main accuracy and box dimension.
+If c1 and c2 values after damp keyword are specified, electric fields below c1 cutoff are ignored and between c1 and c2 are damped.
+In the case of Fennell's potential, type can be "sin" or "exp", namely damping can be done using a sinusoidal or gaussian function.
+
+For the moment, this fix can be used only in conjunction with lj_cut_coul_long pair_style and with a main cutoff that is slightly bigger than F-RESP cutoff. Virial calculation is implemented only in the case of fresp/dsf.
+
+Examples of input files can be found in examples/USER-FRESP directory.
+
+For any info, suggestion or bug report please write to: francesco.cappelluti@graduate.univaq.it.
