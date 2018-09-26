@@ -12,7 +12,8 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Contributing author: Francesco Cappelluti (francesco.cappelluti@graduate.univaq.it)
+   Contributing author: Francesco Cappelluti
+    (francesco.cappelluti@graduate.univaq.it)
 ------------------------------------------------------------------------- */
 
 #include <math.h>
@@ -59,8 +60,10 @@ FixFRespEwald::FixFRespEwald(LAMMPS *lmp, int narg, char **arg) :
   if (narg < 7 || narg > 17) error->all(FLERR,"Illegal fix fresp command");
 
   int iarg = 7;
-  
-  while (iarg < narg) { //else if are needed in order not to have segmentation fault when trying to access elements outside arg
+
+  //following else if are needed in order not to have segfault when
+  //trying to access elements outside arg
+  while (iarg < narg) {
     if (strcmp(arg[iarg], "gewald") == 0) {
       gewaldflag = 0;
       g_ewald = force->numeric(FLERR, arg[++iarg]);
@@ -675,10 +678,14 @@ void FixFRespEwald::ewald_eik_dot_r_qgen()
         sstr2 = 0.0;
         for (i = 0; i < nlocal; i++) {
           charge = qgen[types[atom->tag[i] - 1]];
-          cstr1 += charge*(cs_qgen[k][0][i]*cs_qgen[l][1][i] - sn_qgen[k][0][i]*sn_qgen[l][1][i]);
-          sstr1 += charge*(sn_qgen[k][0][i]*cs_qgen[l][1][i] + cs_qgen[k][0][i]*sn_qgen[l][1][i]);
-          cstr2 += charge*(cs_qgen[k][0][i]*cs_qgen[l][1][i] + sn_qgen[k][0][i]*sn_qgen[l][1][i]);
-          sstr2 += charge*(sn_qgen[k][0][i]*cs_qgen[l][1][i] - cs_qgen[k][0][i]*sn_qgen[l][1][i]);
+          cstr1 += charge*(cs_qgen[k][0][i]*cs_qgen[l][1][i] -
+            sn_qgen[k][0][i]*sn_qgen[l][1][i]);
+          sstr1 += charge*(sn_qgen[k][0][i]*cs_qgen[l][1][i] +
+            cs_qgen[k][0][i]*sn_qgen[l][1][i]);
+          cstr2 += charge*(cs_qgen[k][0][i]*cs_qgen[l][1][i] +
+            sn_qgen[k][0][i]*sn_qgen[l][1][i]);
+          sstr2 += charge*(sn_qgen[k][0][i]*cs_qgen[l][1][i] -
+            cs_qgen[k][0][i]*sn_qgen[l][1][i]);
         }
         sfacrl_qgen[n] = cstr1;
         sfacim_qgen[n++] = sstr1;
@@ -700,10 +707,14 @@ void FixFRespEwald::ewald_eik_dot_r_qgen()
         sstr2 = 0.0;
         for (i = 0; i < nlocal; i++) {
           charge = qgen[types[atom->tag[i] - 1]];
-          cstr1 += charge*(cs_qgen[l][1][i]*cs_qgen[m][2][i] - sn_qgen[l][1][i]*sn_qgen[m][2][i]);
-          sstr1 += charge*(sn_qgen[l][1][i]*cs_qgen[m][2][i] + cs_qgen[l][1][i]*sn_qgen[m][2][i]);
-          cstr2 += charge*(cs_qgen[l][1][i]*cs_qgen[m][2][i] + sn_qgen[l][1][i]*sn_qgen[m][2][i]);
-          sstr2 += charge*(sn_qgen[l][1][i]*cs_qgen[m][2][i] - cs_qgen[l][1][i]*sn_qgen[m][2][i]);
+          cstr1 += charge*(cs_qgen[l][1][i]*cs_qgen[m][2][i] -
+            sn_qgen[l][1][i]*sn_qgen[m][2][i]);
+          sstr1 += charge*(sn_qgen[l][1][i]*cs_qgen[m][2][i] +
+            cs_qgen[l][1][i]*sn_qgen[m][2][i]);
+          cstr2 += charge*(cs_qgen[l][1][i]*cs_qgen[m][2][i] +
+            sn_qgen[l][1][i]*sn_qgen[m][2][i]);
+          sstr2 += charge*(sn_qgen[l][1][i]*cs_qgen[m][2][i] -
+            cs_qgen[l][1][i]*sn_qgen[m][2][i]);
         }
         sfacrl_qgen[n] = cstr1;
         sfacim_qgen[n++] = sstr1;
@@ -725,10 +736,14 @@ void FixFRespEwald::ewald_eik_dot_r_qgen()
         sstr2 = 0.0;
         for (i = 0; i < nlocal; i++) {
           charge = qgen[types[atom->tag[i] - 1]];
-          cstr1 += charge*(cs_qgen[k][0][i]*cs_qgen[m][2][i] - sn_qgen[k][0][i]*sn_qgen[m][2][i]);
-          sstr1 += charge*(sn_qgen[k][0][i]*cs_qgen[m][2][i] + cs_qgen[k][0][i]*sn_qgen[m][2][i]);
-          cstr2 += charge*(cs_qgen[k][0][i]*cs_qgen[m][2][i] + sn_qgen[k][0][i]*sn_qgen[m][2][i]);
-          sstr2 += charge*(sn_qgen[k][0][i]*cs_qgen[m][2][i] - cs_qgen[k][0][i]*sn_qgen[m][2][i]);
+          cstr1 += charge*(cs_qgen[k][0][i]*cs_qgen[m][2][i] -
+            sn_qgen[k][0][i]*sn_qgen[m][2][i]);
+          sstr1 += charge*(sn_qgen[k][0][i]*cs_qgen[m][2][i] +
+            cs_qgen[k][0][i]*sn_qgen[m][2][i]);
+          cstr2 += charge*(cs_qgen[k][0][i]*cs_qgen[m][2][i] +
+            sn_qgen[k][0][i]*sn_qgen[m][2][i]);
+          sstr2 += charge*(sn_qgen[k][0][i]*cs_qgen[m][2][i] -
+            cs_qgen[k][0][i]*sn_qgen[m][2][i]);
         }
         sfacrl_qgen[n] = cstr1;
         sfacim_qgen[n++] = sstr1;
@@ -756,25 +771,41 @@ void FixFRespEwald::ewald_eik_dot_r_qgen()
           sstr4 = 0.0;
           for (i = 0; i < nlocal; i++) {
             charge = qgen[types[atom->tag[i] - 1]];
-            clpm = cs_qgen[l][1][i]*cs_qgen[m][2][i] - sn_qgen[l][1][i]*sn_qgen[m][2][i];
-            slpm = sn_qgen[l][1][i]*cs_qgen[m][2][i] + cs_qgen[l][1][i]*sn_qgen[m][2][i];
-            cstr1 += charge*(cs_qgen[k][0][i]*clpm - sn_qgen[k][0][i]*slpm);
-            sstr1 += charge*(sn_qgen[k][0][i]*clpm + cs_qgen[k][0][i]*slpm);
+            clpm = cs_qgen[l][1][i]*cs_qgen[m][2][i] -
+              sn_qgen[l][1][i]*sn_qgen[m][2][i];
+            slpm = sn_qgen[l][1][i]*cs_qgen[m][2][i] +
+              cs_qgen[l][1][i]*sn_qgen[m][2][i];
+            cstr1 += charge*(cs_qgen[k][0][i]*clpm -
+              sn_qgen[k][0][i]*slpm);
+            sstr1 += charge*(sn_qgen[k][0][i]*clpm +
+              cs_qgen[k][0][i]*slpm);
 
-            clpm = cs_qgen[l][1][i]*cs_qgen[m][2][i] + sn_qgen[l][1][i]*sn_qgen[m][2][i];
-            slpm = -sn_qgen[l][1][i]*cs_qgen[m][2][i] + cs_qgen[l][1][i]*sn_qgen[m][2][i];
-            cstr2 += charge*(cs_qgen[k][0][i]*clpm - sn_qgen[k][0][i]*slpm);
-            sstr2 += charge*(sn_qgen[k][0][i]*clpm + cs_qgen[k][0][i]*slpm);
+            clpm = cs_qgen[l][1][i]*cs_qgen[m][2][i] +
+              sn_qgen[l][1][i]*sn_qgen[m][2][i];
+            slpm = -sn_qgen[l][1][i]*cs_qgen[m][2][i] +
+              cs_qgen[l][1][i]*sn_qgen[m][2][i];
+            cstr2 += charge*(cs_qgen[k][0][i]*clpm -
+              sn_qgen[k][0][i]*slpm);
+            sstr2 += charge*(sn_qgen[k][0][i]*clpm +
+              cs_qgen[k][0][i]*slpm);
 
-            clpm = cs_qgen[l][1][i]*cs_qgen[m][2][i] + sn_qgen[l][1][i]*sn_qgen[m][2][i];
-            slpm = sn_qgen[l][1][i]*cs_qgen[m][2][i] - cs_qgen[l][1][i]*sn_qgen[m][2][i];
-            cstr3 += charge*(cs_qgen[k][0][i]*clpm - sn_qgen[k][0][i]*slpm);
-            sstr3 += charge*(sn_qgen[k][0][i]*clpm + cs_qgen[k][0][i]*slpm);
+            clpm = cs_qgen[l][1][i]*cs_qgen[m][2][i] +
+              sn_qgen[l][1][i]*sn_qgen[m][2][i];
+            slpm = sn_qgen[l][1][i]*cs_qgen[m][2][i] -
+              cs_qgen[l][1][i]*sn_qgen[m][2][i];
+            cstr3 += charge*(cs_qgen[k][0][i]*clpm -
+              sn_qgen[k][0][i]*slpm);
+            sstr3 += charge*(sn_qgen[k][0][i]*clpm +
+              cs_qgen[k][0][i]*slpm);
 
-            clpm = cs_qgen[l][1][i]*cs_qgen[m][2][i] - sn_qgen[l][1][i]*sn_qgen[m][2][i];
-            slpm = -sn_qgen[l][1][i]*cs_qgen[m][2][i] - cs_qgen[l][1][i]*sn_qgen[m][2][i];
-            cstr4 += charge*(cs_qgen[k][0][i]*clpm - sn_qgen[k][0][i]*slpm);
-            sstr4 += charge*(sn_qgen[k][0][i]*clpm + cs_qgen[k][0][i]*slpm);
+            clpm = cs_qgen[l][1][i]*cs_qgen[m][2][i] -
+              sn_qgen[l][1][i]*sn_qgen[m][2][i];
+            slpm = -sn_qgen[l][1][i]*cs_qgen[m][2][i] -
+              cs_qgen[l][1][i]*sn_qgen[m][2][i];
+            cstr4 += charge*(cs_qgen[k][0][i]*clpm -
+              sn_qgen[k][0][i]*slpm);
+            sstr4 += charge*(sn_qgen[k][0][i]*clpm +
+              cs_qgen[k][0][i]*slpm);
           }
           sfacrl_qgen[n] = cstr1;
           sfacim_qgen[n++] = sstr1;
@@ -822,11 +853,14 @@ void FixFRespEwald::ewald_eik_dot_r_triclinic_qgen()
         cs_qgen[0][ic][i] = 1.0;
         sn_qgen[0][ic][i] = 0.0;
         #ifdef __INTEL_MKL__
-        arg = unitk_lamda[0]*x[i][0] + unitk_lamda[1]*x[i][1] + unitk_lamda[2]*x[i][2];
+        arg = unitk_lamda[0]*x[i][0] + unitk_lamda[1]*x[i][1] +
+          unitk_lamda[2]*x[i][2];
         vdSinCos(1, &arg, &sn_qgen[1][ic][i], &cs_qgen[1][ic][i]);
         #else
-        cs_qgen[1][ic][i] = cos(unitk_lamda[0]*x[i][0] + unitk_lamda[1]*x[i][1] + unitk_lamda[2]*x[i][2]);
-        sn_qgen[1][ic][i] = sin(unitk_lamda[0]*x[i][0] + unitk_lamda[1]*x[i][1] + unitk_lamda[2]*x[i][2]);
+        cs_qgen[1][ic][i] = cos(unitk_lamda[0]*x[i][0] +
+          unitk_lamda[1]*x[i][1] + unitk_lamda[2]*x[i][2]);
+        sn_qgen[1][ic][i] = sin(unitk_lamda[0]*x[i][0] +
+          unitk_lamda[1]*x[i][1] + unitk_lamda[2]*x[i][2]);
         #endif
         cs_qgen[-1][ic][i] = cs_qgen[1][ic][i];
         sn_qgen[-1][ic][i] = -sn_qgen[1][ic][i];
@@ -860,10 +894,14 @@ void FixFRespEwald::ewald_eik_dot_r_triclinic_qgen()
     cstr1 = 0.0;
     sstr1 = 0.0;
     for (i = 0; i < nlocal; i++) {
-      clpm = cs_qgen[l][1][i]*cs_qgen[m][2][i] - sn_qgen[l][1][i]*sn_qgen[m][2][i];
-      slpm = sn_qgen[l][1][i]*cs_qgen[m][2][i] + cs_qgen[l][1][i]*sn_qgen[m][2][i];
-      cstr1 += qgen[types[atom->tag[i] - 1]]*(cs_qgen[k][0][i]*clpm - sn_qgen[k][0][i]*slpm);
-      sstr1 += qgen[types[atom->tag[i] - 1]]*(sn_qgen[k][0][i]*clpm + cs_qgen[k][0][i]*slpm);
+      clpm = cs_qgen[l][1][i]*cs_qgen[m][2][i] -
+        sn_qgen[l][1][i]*sn_qgen[m][2][i];
+      slpm = sn_qgen[l][1][i]*cs_qgen[m][2][i] +
+        cs_qgen[l][1][i]*sn_qgen[m][2][i];
+      cstr1 += qgen[types[atom->tag[i] - 1]] * (cs_qgen[k][0][i] *
+        clpm - sn_qgen[k][0][i]*slpm);
+      sstr1 += qgen[types[atom->tag[i] - 1]] * (sn_qgen[k][0][i] *
+        clpm + cs_qgen[k][0][i]*slpm);
     }
     sfacrl_qgen[n] = cstr1;
     sfacim_qgen[n] = sstr1;
@@ -908,19 +946,22 @@ double FixFRespEwald::ewald_rms(int km, double prd, bigint natoms, double q2)
 
 void FixFRespEwald::ewald_init()
 {
-  // extract short-range Coulombic cutoff from pair style
+  //extract short-range Coulombic cutoff from pair style
 
   triclinic = domain->triclinic;
 
-  // compute qsum & qsqsum and warn if not charge-neutral
+  //compute qsum & qsqsum and warn if not charge-neutral
 
   scale = 1.0;
   ewald_qsum_qsq();
   natoms_original = atom->natoms;
 
-  // set accuracy (force units) from kspace->accuracy_relative or kspace->accuracy_absolute
-  if (force->kspace->accuracy_absolute >= 0.0) accuracy = force->kspace->accuracy_absolute;
-  else accuracy = force->kspace->accuracy_relative * force->kspace->two_charge_force;
+  //set accuracy (force units) from kspace->accuracy_relative or
+  //kspace->accuracy_absolute
+  if (force->kspace->accuracy_absolute >= 0.0)
+    accuracy = force->kspace->accuracy_absolute;
+  else accuracy = force->kspace->accuracy_relative *
+    force->kspace->two_charge_force;
 
   //If not specified in input, g_ewald is put equal to main one.
   if (gewaldflag) g_ewald = force->kspace->g_ewald;
@@ -1163,8 +1204,10 @@ int FixFRespEwald::pack_reverse_comm(int n, int first, double *buf)
 {
   int i, m, last;
   last = first + n;
-  if (pack_flag == 1) for(m = 0, i = first; m < n; m++, i++) buf[m] = deltaq[i];
-  else if (pack_flag == 3) for (m = 0, i = first; m < n; m++, i++) buf[m] = erfc_erf_arr[i];
+  if (pack_flag == 1) for(m = 0, i = first; m < n; m++, i++)
+    buf[m] = deltaq[i];
+  else if (pack_flag == 3) for (m = 0, i = first; m < n; m++, i++)
+    buf[m] = erfc_erf_arr[i];
   return m;
 }
 
@@ -1175,7 +1218,8 @@ void FixFRespEwald::unpack_reverse_comm(int n, int *list, double *buf)
   int m, j, i;
 
   if (pack_flag == 1) for(m = 0; m < n; m++) deltaq[list[m]] += buf[m];
-  else if (pack_flag == 3) for (m = 0; m < n; m++) erfc_erf_arr[list[m]] += buf[m];
+  else if (pack_flag == 3) for (m = 0; m < n; m++)
+    erfc_erf_arr[list[m]] += buf[m];
 }
 
 /* ---------------------------------------------------------------------
@@ -1184,13 +1228,18 @@ void FixFRespEwald::unpack_reverse_comm(int n, int *list, double *buf)
 
 void FixFRespEwald::q_update_Efield_bond()
 {
-  double xm[3], **x = atom->x, k, rvml, rvminv, rvminvsq, rvminvcu, rvm[3], rvmvs[3], r0, dr, bondvl, bondvinv, bondinvsq; 
-  bigint atom1, atom2, center, global_center, global_atom1, global_atom2, molecule;
+  double xm[3], **x = atom->x, k, rvml, rvminv, rvminvsq, rvminvcu;
+  double rvm[3], rvmvs[3], r0, dr, bondvl, bondvinv, bondinvsq; 
+  bigint atom1, atom2, center, global_center, global_atom1, global_atom2;
+  bigint molecule;
   int atom1_t, atom2_t, center_t, i, bond, atom1_pos, atom2_pos, molflag;
-  double bondv[3], bondvs[3], E[3], E_R[3], E_K[3], Eparallel, ra1[3], ra2[3], erfc, rvmlsq;
-  double grij, expm2, Im_prod, Re_prod, Im_xm, Re_xm, bondkprod, bondvskprod, first_first_half[3], first_second_half[3];
-  double cutoff3_sqr, arg, first_half[3], second_half[3], pref, appo2Re_pref, appo2Im_pref, kvec[3], minus_square_grij;
-  double dEr_par, E_Rpar, bondrvmprod, E_Rpar_red, bondvs_red[3], damping, damping_sqrt, ddamping[3], pref_first_half, pref_second_half;
+  double bondv[3], bondvs[3], E[3], E_R[3], E_K[3], Eparallel, ra1[3], ra2[3];
+  double grij, expm2, Im_prod, Re_prod, Im_xm, Re_xm, bondkprod, bondvskprod;
+  double first_first_half[3], first_second_half[3], erfc, rvmlsq;
+  double cutoff3_sqr, arg, first_half[3], second_half[3], pref, appo2Re_pref;
+  double appo2Im_pref, kvec[3], minus_square_grij;
+  double dEr_par, E_Rpar, bondrvmprod, E_Rpar_red, bondvs_red[3], damping;
+  double damping_sqrt, ddamping[3], pref_first_half, pref_second_half;
 
   cutoff3_sqr = cutoff3 * cutoff3;
 
@@ -1217,11 +1266,10 @@ void FixFRespEwald::q_update_Efield_bond()
     bondvl = MathExtra::len3(bondv);
     #endif
 
-    //This check is here because, if false, bondv has already been calculated and
-    //can be used for charge variation due to bond stretching
+    //This check is here because, if false, bondv has already been calculated
+    //and can be used for charge variation due to bond stretching
     if (Efieldflag && qsqsum > 0.0) {
 
-      //*perbond variables can be decommented in order to print Efield components along each bond
       double E_R_perbond = 0.0, E_B_perbond = 0.0, E_K_perbond = 0.0;
 
       bondvinv = 1.0 / bondvl;
@@ -1243,17 +1291,19 @@ void FixFRespEwald::q_update_Efield_bond()
       atom1_pos = bond_extremes_pos[bond][0];
       atom2_pos = bond_extremes_pos[bond][1];
 
-      //This cycle over all the atoms is absolutely needed, neglecting it costed me three days spent debugging.
-      for (i = 0; i < dEr_indexes[bond][0][0]; i++) dEr_vals[bond][i][0] = dEr_vals[bond][i][1] = dEr_vals[bond][i][2] = 0.0;
+      //This cycle over all the atoms is absolutely needed, neglecting it
+      //costed me three days spent debugging.
+      for (i = 0; i < dEr_indexes[bond][0][0]; i++) dEr_vals[bond][i][0] =
+        dEr_vals[bond][i][1] = dEr_vals[bond][i][2] = 0.0;
 
-      //double t1 = MPI_Wtime();
-
-      //The cycle is done over all the counter atoms contained in the union of the Verlet lists of bond extremes
-      //Calculate E and its gradient in direct space with bonded correction due to Ewald summation too
+      //The cycle is done over all the counter atoms contained in the union
+      //of the Verlet lists of bond extremes. Calculate E and its gradient
+      //in direct space with bonded correction due to Ewald summation too
       for (i = 0; i < dEr_indexes[bond][0][0]; i++) {
         center = dEr_indexes[bond][i + 1][0];
         global_center = atom->tag[center];
-        molflag = atom->molecule[center] == molecule; //molflag = 1 if center is in the same molecule, 0 otherwise
+        //molflag = 1 if center is in the same molecule, 0 otherwise
+        molflag = atom->molecule[center] == molecule;
         #ifdef __INTEL_MKL__
         vdSub(3, xm, x[center], rvm);
         domain->minimum_image(rvm[0], rvm[1], rvm[2]);
@@ -1328,36 +1378,57 @@ void FixFRespEwald::q_update_Efield_bond()
         rvminvsq = rvminv * rvminv;
         rvminvcu = rvminvsq * rvminv;
         if (!molflag) {
-          E_Rpar = qgen[types[global_center - 1]] * rvminvsq * (erfc * rvminv + TWO_OVER_SQPI * g_ewald * expm2);
-          dEr_par = -qgen[types[global_center - 1]] * rvminv * bondvinv * (expm2 * TWO_OVER_SQPI * g_ewald * (3.0 * rvminvsq + 2.0 * g_ewald * g_ewald) + 3.0 * erfc * rvminvcu);
+          E_Rpar = qgen[types[global_center - 1]] * rvminvsq *
+            (erfc * rvminv + TWO_OVER_SQPI * g_ewald * expm2);
+          dEr_par = -qgen[types[global_center - 1]] * rvminv * bondvinv *
+            (expm2 * TWO_OVER_SQPI * g_ewald * (3.0 * rvminvsq + 2.0 *
+            g_ewald * g_ewald) + 3.0 * erfc * rvminvcu);
           if (dampflag == 1 && rvml < cutoff1) continue;
           if (rvml < cutoff2) {
             damping = Efield_damping(dampflag, rvml, cutoff1, cutoff2);
             //damping function derivative is initialized as rvmvs
             #ifdef __INTEL_MKL__
             cblas_dcopy(3, rvmvs, 1, ddamping, 1);
-            if (dampflag == 0) cblas_dscal(3, ((rvml - cutoff2) / (cutoff1 * cutoff1)) * bondrvmprod * bondvinv * damping * E_Rpar, ddamping, 1);
-            else if (dampflag == 1) cblas_dscal(3, MathConst::MY_PI / (cutoff2 - cutoff1) * sqrt(damping) * (1.0 - 2.0 * damping) * rvminv * E_Rpar, ddamping, 1);
+            if (dampflag == 0)
+              cblas_dscal(3, ((rvml - cutoff2) / (cutoff1 * cutoff1)) *
+              bondrvmprod * bondvinv * damping * E_Rpar, ddamping, 1);
+            else if (dampflag == 1) 
+              cblas_dscal(3, MathConst::MY_PI / (cutoff2 - cutoff1) *
+              sqrt(damping) * (1.0 - 2.0 * damping) * rvminv * E_Rpar, 
+              ddamping, 1);
             #else
             MathExtra::copy3(rvmvs, ddamping);
-            if (dampflag == 0) MathExtra::scale3(((rvml - cutoff2) / (cutoff1 * cutoff1)) * bondrvmprod * bondvinv * E_Rpar, ddamping);
-            else if (dampflag == 1) MathExtra::scale3(MathConst::MY_PI / (cutoff2 - cutoff1) * sqrt(damping) * (1.0 - 2.0 * damping) * rvminv * E_Rpar, ddamping);
+            if (dampflag == 0)
+              MathExtra::scale3(((rvml - cutoff2) / (cutoff1 * cutoff1)) *
+              bondrvmprod * bondvinv * E_Rpar, ddamping);
+            else if (dampflag == 1)
+              MathExtra::scale3(MathConst::MY_PI / (cutoff2 - cutoff1) *
+              sqrt(damping) * (1.0 - 2.0 * damping) * rvminv *
+              E_Rpar, ddamping);
             #endif
             //E_Rpar and dEr_par are scaled
             E_Rpar *= damping;
             dEr_par *= damping;
             #ifdef __INTEL_MKL__
             vdAdd(3, ddamping, dEr_vals[bond][i], dEr_vals[bond][i]);
-            //derivative of damping function for atom1 and atom2 is calculated (simply half the opposite of the previous one) and multiplied times undamped Efield
+            //derivative of damping function for atom1 and atom2 is calculated
+            //(simply half the opposite of the previous one) and multiplied
+            //times undamped Efield
             cblas_dscal(3, -0.5, ddamping, 1);
-            vdAdd(3, ddamping, dEr_vals[bond][atom1_pos], dEr_vals[bond][atom1_pos]);
-            vdAdd(3, ddamping, dEr_vals[bond][atom2_pos], dEr_vals[bond][atom2_pos]);
+            vdAdd(3, ddamping, dEr_vals[bond][atom1_pos],
+              dEr_vals[bond][atom1_pos]);
+            vdAdd(3, ddamping, dEr_vals[bond][atom2_pos],
+              dEr_vals[bond][atom2_pos]);
             #else
             MathExtra::add3(ddamping, dEr_vals[bond][i], dEr_vals[bond][i]);
-            //derivative of damping function for atom1 and atom2 is calculated (simply half the opposite of the previous one) and multiplied times undamped Efield
+            //derivative of damping function for atom1 and atom2 is calculated
+            //(simply half the opposite of the previous one) and multiplied
+            //times undamped Efield
             MathExtra::scale3(-0.5, ddamping);
-            MathExtra::add3(ddamping, dEr_vals[bond][atom1_pos], dEr_vals[bond][atom1_pos]);
-            MathExtra::add3(ddamping, dEr_vals[bond][atom2_pos], dEr_vals[bond][atom2_pos]);
+            MathExtra::add3(ddamping, dEr_vals[bond][atom1_pos],
+              dEr_vals[bond][atom1_pos]);
+            MathExtra::add3(ddamping, dEr_vals[bond][atom2_pos],
+              dEr_vals[bond][atom2_pos]);
             #endif
           }
           #ifdef __INTEL_MKL__
@@ -1370,8 +1441,11 @@ void FixFRespEwald::q_update_Efield_bond()
         }
         //Efield is not damped
         else { 
-          E_Rpar = qgen[types[global_center - 1]] * rvminvsq * (TWO_OVER_SQPI * g_ewald * expm2 - (1.0 - erfc) * rvminv);
-          dEr_par = qgen[types[global_center - 1]] * rvminv * bondvinv * (3.0 * rvminvcu * (1.0 - erfc) - TWO_OVER_SQPI * g_ewald * expm2 * (3.0 * rvminvsq + 2.0 * g_ewald * g_ewald)); 
+          E_Rpar = qgen[types[global_center - 1]] * rvminvsq *
+            (TWO_OVER_SQPI * g_ewald * expm2 - (1.0 - erfc) * rvminv);
+          dEr_par = qgen[types[global_center - 1]] * rvminv * bondvinv *
+            (3.0 * rvminvcu * (1.0 - erfc) - TWO_OVER_SQPI * g_ewald * expm2 *
+            (3.0 * rvminvsq + 2.0 * g_ewald * g_ewald)); 
           #ifdef __INTEL_MKL__
           cblas_dscal(3, E_Rpar, E_R, 1);
           E_B_perbond += cblas_ddot(3, E_R, 1, bondvs, 1);
@@ -1396,14 +1470,20 @@ void FixFRespEwald::q_update_Efield_bond()
         cblas_dscal(3, 0.5 * dEr_par, first_second_half, 1);
 
         //dEr_vals/d(atom1) components are calculated
-        cblas_daxpy(3, -bondrvmprod, first_first_half, 1, dEr_vals[bond][atom1_pos], 1);
-        cblas_daxpy(3, bondrvmprod, first_second_half, 1, dEr_vals[bond][atom1_pos], 1);
-        cblas_daxpy(3, E_Rpar_red, ra1, 1, dEr_vals[bond][atom1_pos], 1);
+        cblas_daxpy(3, -bondrvmprod, first_first_half, 1,
+          dEr_vals[bond][atom1_pos], 1);
+        cblas_daxpy(3, bondrvmprod, first_second_half, 1,
+          dEr_vals[bond][atom1_pos], 1);
+        cblas_daxpy(3, E_Rpar_red, ra1, 1,
+          dEr_vals[bond][atom1_pos], 1);
 
         //dEr_vals/d(atom2) components are calculated
-        cblas_daxpy(3, bondrvmprod, first_first_half, 1, dEr_vals[bond][atom2_pos], 1);
-        cblas_daxpy(3, bondrvmprod, first_second_half, 1, dEr_vals[bond][atom2_pos], 1);
-        cblas_daxpy(3, E_Rpar_red, ra2, 1, dEr_vals[bond][atom2_pos], 1);
+        cblas_daxpy(3, bondrvmprod, first_first_half, 1,
+          dEr_vals[bond][atom2_pos], 1);
+        cblas_daxpy(3, bondrvmprod, first_second_half, 1,
+          dEr_vals[bond][atom2_pos], 1);
+        cblas_daxpy(3, E_Rpar_red, ra2, 1,
+          dEr_vals[bond][atom2_pos], 1);
         #else
         //dEr_vals/d(dEr_indexes[i][0]) components are calculated
         dEr_vals[bond][i][0] += first_half[0] * rvmvs[0] - E_Rpar * bondvs[0];
@@ -1419,81 +1499,34 @@ void FixFRespEwald::q_update_Efield_bond()
         first_second_half[2] = 0.5 * dEr_par * rvmvs[2];
    
         //dEr_vals/d(atom1) components are calculated
-        dEr_vals[bond][atom1_pos][0] += (-first_first_half[0] + first_second_half[0]) * bondrvmprod + E_Rpar_red * ra1[0];
-        dEr_vals[bond][atom1_pos][1] += (-first_first_half[1] + first_second_half[1]) * bondrvmprod + E_Rpar_red * ra1[1];
-        dEr_vals[bond][atom1_pos][2] += (-first_first_half[2] + first_second_half[2]) * bondrvmprod + E_Rpar_red * ra1[2];
+        dEr_vals[bond][atom1_pos][0] += (-first_first_half[0] +
+          first_second_half[0]) * bondrvmprod + E_Rpar_red * ra1[0];
+        dEr_vals[bond][atom1_pos][1] += (-first_first_half[1] +
+          first_second_half[1]) * bondrvmprod + E_Rpar_red * ra1[1];
+        dEr_vals[bond][atom1_pos][2] += (-first_first_half[2] +
+          first_second_half[2]) * bondrvmprod + E_Rpar_red * ra1[2];
    
         //dEr_vals/d(atom2) components are calculated
-        dEr_vals[bond][atom2_pos][0] += (first_first_half[0] + first_second_half[0]) * bondrvmprod + E_Rpar_red * ra2[0];
-        dEr_vals[bond][atom2_pos][1] += (first_first_half[1] + first_second_half[1]) * bondrvmprod + E_Rpar_red * ra2[1];
-        dEr_vals[bond][atom2_pos][2] += (first_first_half[2] + first_second_half[2]) * bondrvmprod + E_Rpar_red * ra2[2];
+        dEr_vals[bond][atom2_pos][0] += (first_first_half[0] +
+          first_second_half[0]) * bondrvmprod + E_Rpar_red * ra2[0];
+        dEr_vals[bond][atom2_pos][1] += (first_first_half[1] +
+          first_second_half[1]) * bondrvmprod + E_Rpar_red * ra2[1];
+        dEr_vals[bond][atom2_pos][2] += (first_first_half[2] +
+          first_second_half[2]) * bondrvmprod + E_Rpar_red * ra2[2];
         #endif
       }
 
-      //double t2 = MPI_Wtime();
-      //fprintf(stderr, "1 %lf\n", t2 - t1);
-
-      /*#ifdef __INTEL_MKL__
-      //double t3 = MPI_Wtime();
-
-      cblas_dgemv(CblasRowMajor, CblasNoTrans, kcount, 3, 1.0, kvecs[0], 3, bondv, 1, 0.0, bondvskprod_vec, 1);
-      cblas_dscal(kcount, bondvinv, bondvskprod_vec, 1);
-      cblas_dgemv(CblasRowMajor, CblasNoTrans, kcount, 3, 1.0, kvecs[0], 3, xm, 1, 0.0, xmkprod_vec, 1);
-      vdSinCos(kcount, xmkprod_vec, Im_xm_vec, Re_xm_vec);
-      vdMul(kcount, Im_xm_vec, sfacrl_all_qgen, Im_prod_vec);
-      vdMul(kcount, Re_xm_vec, sfacim_all_qgen, tmp1);
-      vdSub(kcount, Im_prod_vec, tmp1, Im_prod_vec);
-      vdMul(kcount, Re_xm_vec, sfacrl_all_qgen, Re_prod_vec);
-      vdMul(kcount, Im_xm_vec, sfacim_all_qgen, tmp1);
-      vdAdd(kcount, Re_prod_vec, tmp1, Re_prod_vec);
-      vdMul(kcount, Re_xm_vec, bondvskprod_vec, appo2Re_pref_vec);
-      vdMul(kcount, Im_xm_vec, bondvskprod_vec, appo2Im_pref_vec);
-
-      //Could find a more efficient way
-      cblas_dcopy(kcount, eg[0], 3, tmp1, 1);
-      vdMul(kcount, appo2Re_pref_vec, tmp1, tmp2);
-      cblas_dcopy(kcount, tmp2, 1, appo2[bond][0], 6);
-      vdMul(kcount, appo2Im_pref_vec, tmp1, tmp2);
-      cblas_dcopy(kcount, tmp2, 1, appo2[bond][0] + 3, 6);
-      cblas_dcopy(kcount, eg[0] + 1, 3, tmp1, 1);
-      vdMul(kcount, appo2Re_pref_vec, tmp1, tmp2);
-      cblas_dcopy(kcount, tmp2, 1, appo2[bond][0] + 1, 6);
-      vdMul(kcount, appo2Im_pref_vec, tmp1, tmp2);
-      cblas_dcopy(kcount, tmp2, 1, appo2[bond][0] + 4, 6);
-      cblas_dcopy(kcount, eg[0] + 2, 3, tmp1, 1);
-      vdMul(kcount, appo2Re_pref_vec, tmp1, tmp2);
-      cblas_dcopy(kcount, tmp2, 1, appo2[bond][0] + 2, 6);
-      vdMul(kcount, appo2Im_pref_vec, tmp1, tmp2);
-      cblas_dcopy(kcount, tmp2, 1, appo2[bond][0] + 5, 6);
-
-      //Now tmp1 is pref_first_half
-      vdMul(kcount, ug, Re_prod_vec, tmp1);
-      vdMul(kcount, bondvskprod_vec, tmp1, tmp1);
-      //Now tmp2 is pref_second_half
-      vdMul(kcount, ug, Im_prod_vec, tmp2);
-      cblas_dscal(kcount, 2.0 * bondvinv, tmp2, 1);
-      #endif*/
-
-      //Calculate E and its gradient (only wrt atom1 and atom2) in reciprocal space
+      //Calculate E and its gradient (only wrt atom1 and atom2)
+      //in reciprocal space
       for (i = 0; i < kcount; i++) {
         kvec[0] = kvecs[i][0];
         kvec[1] = kvecs[i][1];
         kvec[2] = kvecs[i][2];
 
-        //E is made equal to current k vector times all components except structure factor product
+        //E is made equal to current k vector times all components except
+        //structure factor product
         MathExtra::copy3(eg[i], E_K);
 
-        /*#ifdef __INTEL_MKL__
-        Im_prod = Im_prod_vec[i];
-        cblas_dscal(3, Im_prod, E_K, 1);
-        vdAdd(3, E, E_K, E);
-        bondvskprod = bondvskprod_vec[i];
-	    appo2Re_pref = appo2Re_pref_vec[i];
-	    appo2Im_pref = appo2Im_pref_vec[i];
-        pref_first_half = tmp1[i];
-        pref_second_half = tmp2[i];
-        //E_K_perbond += cblas_ddot(3, E_K, 1, bondvs, 1);
-        #else*/
         bondkprod = MathExtra::dot3(bondv, kvec);
         bondvskprod = bondkprod * bondvinv;
         arg = MathExtra::dot3(xm, kvec);
@@ -1503,8 +1536,8 @@ void FixFRespEwald::q_update_Efield_bond()
         Re_prod = Re_xm * sfacrl_all_qgen[i] + Im_xm * sfacim_all_qgen[i];
         MathExtra::scale3(Im_prod, E_K);
         MathExtra::add3(E, E_K, E);
-	    appo2Re_pref = bondvskprod * Re_xm;
-	    appo2Im_pref = bondvskprod * Im_xm;
+        appo2Re_pref = bondvskprod * Re_xm;
+        appo2Im_pref = bondvskprod * Im_xm;
         MathExtra::copy3(eg[i], appo2[bond][i]);
         MathExtra::copy3(eg[i], appo2[bond][i] + 3);
         MathExtra::scale3(appo2Re_pref, appo2[bond][i]);
@@ -1512,7 +1545,6 @@ void FixFRespEwald::q_update_Efield_bond()
         pref_first_half = ug[i] * bondvskprod * Re_prod;
         pref_second_half = 2.0 * ug[i] * Im_prod * bondvinv;
         E_K_perbond += MathExtra::dot3(E_K, bondvs);
-        //#endif
 
         first_half[0] = pref_first_half * kvec[0];
         first_half[1] = pref_first_half * kvec[1];
@@ -1539,7 +1571,9 @@ void FixFRespEwald::q_update_Efield_bond()
     //Calculate component of E along bond
     Eparallel = MathExtra::dot3(E, bondvs);
 
-    if (printEfieldflag) fprintf(stderr, "%i %i %.14lf %.14lf %.14lf %.14lf\n", global_atom1, global_atom2, E_R_perbond, E_B_perbond, E_K_perbond, Eparallel);
+    if (printEfieldflag) fprintf(stderr, "%i %i %.14lf %.14lf %.14lf %.14lf\n",
+      global_atom1, global_atom2, E_R_perbond, E_B_perbond, E_K_perbond,
+      Eparallel);
     }
 
     if (bondflag) {
@@ -1547,20 +1581,23 @@ void FixFRespEwald::q_update_Efield_bond()
       dr = bondvl - r0;
     }
 
-    //The cycle is done over all the atoms contained in the same molecule of the bond
+    //The cycle is done over all the atoms contained in the same molecule of
+    //the bond
     for (i = 1; i <= mol_map[molecule - 1][0]; i++) {
       global_center = mol_map[molecule - 1][i];
       center = atom->map((int)global_center);
       center_t = types[global_center - 1];
       k = k_Efield[atom1_t][atom2_t][center_t];
 
-      //Charge variation are put in deltaq instead of atom->q in order to permit their communication to other processes
+      //Charge variation are put in deltaq instead of atom->q in order to
+      //permit their communication to other processes
       deltaq[center] += k * Eparallel;
 
       if (bondflag) {
         k = k_bond[atom1_t][atom2_t][center_t];
 
-        //Charge variation are put in deltaq instead of atom->q in order to permit their communication to other processes
+        //Charge variation are put in deltaq instead of atom->q in order to
+        //permit their communication to other processes
         deltaq[center] += k * dr;
       }
     }
@@ -1589,26 +1626,31 @@ void FixFRespEwald::setup_pre_force(int vflag)
   //kspace solver ewald is initialized.
   ewald_init();
 
-  //an array of nbond double** is allocated in order to store the values of derivatives of E_R * bond unit vector
-  //an array of nbond tagint* is allocated in order to store the indexes of atoms wrt the derivatives of dEr_vals are done
+  //an array of nbond double** is allocated in order to store the values of
+  //derivatives of E_R * bond unit vector
+  //an array of nbond tagint* is allocated in order to store the indexes of
+  //atoms wrt the derivatives of dEr_vals are done
   dEr_vals = (double***) calloc(nbond_old, sizeof(double**));
   if (dEr_vals == NULL) {
     char str[128];
-    sprintf(str,"Failed to allocate " BIGINT_FORMAT " bytes for array fresp:dEr_vals",
+    sprintf(str,"Failed to allocate " BIGINT_FORMAT " bytes for array \
+      fresp:dEr_vals",
             nbond_old * sizeof(double**));
     error->one(FLERR,str);
   }
   distances = (double***) calloc(nbond_old, sizeof(double**));
   if (distances == NULL) {
     char str[128];
-    sprintf(str,"Failed to allocate " BIGINT_FORMAT " bytes for array fresp:distances",
+    sprintf(str,"Failed to allocate " BIGINT_FORMAT " bytes for array \
+      fresp:distances",
             nbond_old * sizeof(double**));
     error->one(FLERR,str);
   }
   dEr_indexes = (tagint***) calloc(nbond_old, sizeof(tagint**));
   if (dEr_indexes == NULL) {
     char str[128];
-    sprintf(str,"Failed to allocate " BIGINT_FORMAT " bytes for array fresp:dEr_indexes",
+    sprintf(str,"Failed to allocate " BIGINT_FORMAT " bytes for array \
+      fresp:dEr_indexes",
             nbond_old * sizeof(double**));
     error->one(FLERR,str);
   }
@@ -1624,7 +1666,8 @@ void FixFRespEwald::setup_pre_force(int vflag)
     for (j = 0; j < atom->num_bond[i]; j++) {
       atom1 = atom->map(atom->bond_atom[i][j]);
       atom1 = domain->closest_image(i, (int)atom1);
-      if (force->newton_bond || i < atom1) build_bond_Verlet_list(bond++, i, atom1);
+      if (force->newton_bond || i < atom1) build_bond_Verlet_list(bond++, i,
+        atom1);
     }
   }
 
@@ -1642,10 +1685,12 @@ void FixFRespEwald::post_neighbor()
   int i, j, end, bond = 0;
   bigint atom1;
 
-  if (comm->me == 0) fprintf(stderr, "Neighbor list rebuilding is at step %i.\n", update->ntimestep);
+  if (comm->me == 0) fprintf(stderr, "Neighbor list rebuilding is at step \
+    %i.\n", update->ntimestep);
 
   //Content of dEr_vals, dEr_indexes and distances arrays is freed.
-  //Could find a more efficient way than freeing all these arrays so many times per simulation.
+  //Could find a more efficient way than freeing all these arrays so many times
+  //per simulation.
   for (i = 0; i < nbond_old; i++) {
     memory->destroy(dEr_vals[i]);
     memory->destroy(distances[i]);
@@ -1659,7 +1704,8 @@ void FixFRespEwald::post_neighbor()
 
   j = count_total_bonds();
 
-  //dEr_vals, dEr_indexes and distances arrays are deallocated, reallocated and initialized as pointing to NULL.
+  //dEr_vals, dEr_indexes and distances arrays are deallocated, reallocated and
+  //initialized as pointing to NULL.
   if (nbond_old != j) {
     nbond_old = j;
     memory->destroy(bond_extremes_pos);
@@ -1683,7 +1729,8 @@ void FixFRespEwald::post_neighbor()
     for (j = 0; j < atom->num_bond[i]; j++) {
       atom1 = atom->map(atom->bond_atom[i][j]);
       atom1 = domain->closest_image(i, (int)atom1);
-      if (force->newton_bond || i < atom1) build_bond_Verlet_list(bond++, i, atom1);
+      if (force->newton_bond || i < atom1)
+        build_bond_Verlet_list(bond++, i, atom1);
     }
   }
 }
@@ -1730,7 +1777,8 @@ void FixFRespEwald::pre_force(int vflag)
   pack_flag = 1;
   comm->reverse_comm_fix(this, 1);
 
-  for (i = 0; i < atom->nlocal; i++) atom->q[i] = q0[types[atom->tag[i] - 1]] + deltaq[i];
+  for (i = 0; i < atom->nlocal; i++)
+    atom->q[i] = q0[types[atom->tag[i] - 1]] + deltaq[i];
   //Communicate atom->q for neighboring atoms
   pack_flag = 2;
   comm->forward_comm_fix(this);
@@ -1739,11 +1787,11 @@ void FixFRespEwald::pre_force(int vflag)
   if (force->kspace) force->kspace->qsum_qsq();
 
   pack_flag = 3;
-  //erfc_erf_arr elements calculated for atoms outside process' box are communicated
+  //erfc_erf_arr elements calculated for atoms outside process' box are
+  //communicated
   comm->reverse_comm_fix(this);
   //erfc_erf_arr elements are communicated
   comm->forward_comm_fix(this);
-  //for (i = 0; i < atom->nlocal; i++) fprintf(stderr, "%i   %.10lf\n", atom->tag[i], erfc_erf_arr[i]);
 }
 
 /* ----------------------------------------------------------------------
@@ -1757,7 +1805,8 @@ void FixFRespEwald::pre_reverse(int eflag, int vflag)
   bigint molecule;
   double alpha, Re_xi, Im_xi, arg, alpha_tot_pot, alpha_real_space_pot;
   const double qscale = force->qqrd2e * 1.0; //1.0 is scale
-  static const double prefac =  2.0 * force->kspace->g_ewald / MathConst::MY_PIS;
+  static const double prefac =  2.0 * force->kspace->g_ewald /
+    MathConst::MY_PIS;
   double v[6], unwrap[3], freal[3], premul[3], gen_q, partial[3];
 
   // energy and virial setup
@@ -1769,7 +1818,8 @@ void FixFRespEwald::pre_reverse(int eflag, int vflag)
   comm->forward_comm_fix(this);
 
   //appo3 is filled with zeros
-  for (k = 0; k < kcount; k++) appo3[k][0] = appo3[k][1] = appo3[k][2] = appo3[k][3] = appo3[k][4] = appo3[k][5] = 0.0;
+  for (k = 0; k < kcount; k++) appo3[k][0] = appo3[k][1] = appo3[k][2] =
+    appo3[k][3] = appo3[k][4] = appo3[k][5] = 0.0;
 
   //double t1 = MPI_Wtime();
 
@@ -1784,10 +1834,11 @@ void FixFRespEwald::pre_reverse(int eflag, int vflag)
       center = atom->map(global_center);
       center_t = types[global_center - 1];
       alpha = k_Efield[atom1_t][atom2_t][center_t];
-	  //alpha_tot_pot = alpha * (qscale * erfc_erf_arr[center] - 2.0 * force->kspace->eatom[center] / atom->q[center]);
-	  //Multipication of qscale times erfc_erf_arr is done in build_erfc_erf_arr
-	  alpha_tot_pot = alpha * (erfc_erf_arr[center] + 2.0 * force->kspace->eatom[center] / atom->q[center]);
-      alpha_real_space_pot = alpha * (erfc_erf_arr[center] - prefac * atom->q[center]);
+      //Multipication of qscale times erfc_erf_arr is done in build_erfc_erf_arr
+      alpha_tot_pot = alpha * (erfc_erf_arr[center] + 2.0 *
+        force->kspace->eatom[center] / atom->q[center]);
+      alpha_real_space_pot = alpha * (erfc_erf_arr[center] - prefac *
+        atom->q[center]);
       for (j = 0; j < dEr_indexes[bond][0][0]; j++) {
         if (dEr_indexes[bond][j + 1][1] == (tagint)-1) continue;
         der_atom = dEr_indexes[bond][j + 1][0];
@@ -1817,16 +1868,10 @@ void FixFRespEwald::pre_reverse(int eflag, int vflag)
         }
       }
       #ifdef __INTEL_MKL__
-      //mkl_domatadd('r', 'n', 'n', kcount, 6, -alpha_tot_pot, &appo2[bond][0][0], 6, 1.0, &appo3[0][0], 6, &appo3[0][0], 6);
-      mkl_domatadd('r', 'n', 'n', kcount, 6, alpha_tot_pot, &appo2[bond][0][0], 6, 1.0, &appo3[0][0], 6, &appo3[0][0], 6);
+      mkl_domatadd('r', 'n', 'n', kcount, 6, alpha_tot_pot, &appo2[bond][0][0],
+        6, 1.0, &appo3[0][0], 6, &appo3[0][0], 6);
       #else
       for (k = 0; k < kcount; k++) {
-        //appo3[k][0] -= alpha_tot_pot * appo2[bond][k][0];
-        //appo3[k][1] -= alpha_tot_pot * appo2[bond][k][1];
-        //appo3[k][2] -= alpha_tot_pot * appo2[bond][k][2];
-        //appo3[k][3] -= alpha_tot_pot * appo2[bond][k][3];
-        //appo3[k][4] -= alpha_tot_pot * appo2[bond][k][4];
-        //appo3[k][5] -= alpha_tot_pot * appo2[bond][k][5];
         appo3[k][0] += alpha_tot_pot * appo2[bond][k][0];
         appo3[k][1] += alpha_tot_pot * appo2[bond][k][1];
         appo3[k][2] += alpha_tot_pot * appo2[bond][k][2];
@@ -1838,13 +1883,8 @@ void FixFRespEwald::pre_reverse(int eflag, int vflag)
     }
   }
 
-  //double t2 = MPI_Wtime();
-  //fprintf(stderr, "%lf\n", t2 - t1);
-
-  for (k = 0; k < kcount; k++) MPI_Allreduce(MPI_IN_PLACE, appo3[k], 6, MPI_DOUBLE, MPI_SUM, world);
-
-  //double t3 = MPI_Wtime();
-  //fprintf(stderr, "%lf\n", t3 - t2);
+  for (k = 0; k < kcount; k++) MPI_Allreduce(MPI_IN_PLACE, appo3[k], 6,
+    MPI_DOUBLE, MPI_SUM, world);
 
   for (i = 0; i < atom->nlocal; i++) {
     global_center = atom->tag[i] - 1;
@@ -1854,7 +1894,8 @@ void FixFRespEwald::pre_reverse(int eflag, int vflag)
     premul[2] = atom->x[i][2] * unitk[2];
     MathExtra::zero3(partial);
     for (k = 0; k < kcount; k++) {
-      arg = kxvecs[k] * premul[0] + kyvecs[k] * premul[1] + kzvecs[k] * premul[2];
+      arg = kxvecs[k] * premul[0] + kyvecs[k] * premul[1] + kzvecs[k] *
+      premul[2];
       #ifdef __INTEL_MKL__
       vdSinCos(1, &arg, &Im_xi, &Re_xi);
       #else
@@ -1875,21 +1916,6 @@ void FixFRespEwald::pre_reverse(int eflag, int vflag)
     atom->f[i][1] += gen_q * partial[1];
     atom->f[i][2] += gen_q * partial[2];
   }
-
-  //double t4 = MPI_Wtime();
-  //fprintf(stderr, "%lf\n", t4 - t3);
-  //fprintf(stderr, "%lf\n", t4 - t1);
-
-  //pack_flag = 2;
-  //comm->reverse_comm_fix(this);
-
-  
-  //atom->f is corrected using deltaf array only for local atoms, in order to assure parallelism
-  //for (i = 0; i < atom->nlocal; i++) {
-  //  atom->f[i][0] += deltaf[i][0];
-  //  atom->f[i][1] += deltaf[i][1];
-  //  atom->f[i][2] += deltaf[i][2];
-  //}
 }
 
 /* ----------------------------------------------------------------------
@@ -1904,28 +1930,36 @@ double FixFRespEwald::memory_usage()
   bytes += nmolecules * (average_mol_size + 1) * sizeof(bigint); //mol_map
   bytes += natypes * natypes * natypes * sizeof(double); //k_bond
   bytes += natypes * natypes * natypes * natypes * sizeof(double); //k_angle
-  bytes += natypes * natypes * natypes * natypes * natypes * sizeof(double); //k_dihedral
-  bytes += natypes * natypes * natypes * natypes * natypes * sizeof(double); //k_improper
+  bytes += natypes * natypes * natypes * natypes * natypes *
+    sizeof(double); //k_dihedral
+  bytes += natypes * natypes * natypes * natypes * natypes *
+    sizeof(double); //k_improper
   bytes += natypes * natypes * natypes * sizeof(double); //k_Efield
   bytes += 2 * natypes * sizeof(double); //q0 and qgen
   //bytes += 5 * atom->nmax * sizeof(double); //deltaq, deltaf and erfc_erf_arr
   bytes += 2 * atom->nmax * sizeof(double); //deltaq and erfc_erf_arr
   bytes += kcount * 6 * sizeof(double); //appo3
   bytes += nbond_old * 6 * kcount * sizeof(double); //appo2
-  for (bond = 0; bond < nbond_old; bond ++) bytes += dEr_indexes[bond][0][0] * (2 * (sizeof(tagint) 
-  + sizeof(bigint) + 3 * sizeof(double))) + 3 * sizeof(bigint); //dEr_vals, dEr_indexes and distances
+  //dEr_vals, dEr_indexes and distances
+  for (bond = 0; bond < nbond_old; bond ++)
+    bytes += dEr_indexes[bond][0][0] * (2 * (sizeof(tagint) + sizeof(bigint) +
+    3 * sizeof(double))) + 3 * sizeof(bigint);
   bytes += atom->nmax * sizeof(short); //already_cycled
   #ifdef __INTEL_MKL__
-  bytes += 10 * kcount * sizeof(double); //arrays used for BLAS functions in reciprocal space part of q_update_Efield
+  //arrays used for BLAS functions in reciprocal space part of q_update_Efield
+  bytes += 10 * kcount * sizeof(double);
   #endif
   return bytes;
 }
 
 /* ---------------------------------------------------------------------- */
 
-inline double FixFRespEwald::Efield_damping(int dampflag, double r, double cutoff1, double cutoff2)
+inline double FixFRespEwald::Efield_damping(int dampflag, double r, double
+  cutoff1, double cutoff2)
 {
-  if (dampflag == 0) return MathSpecial::fm_exp(-0.5 * (r - cutoff2) * (r - cutoff2) / (cutoff1 * cutoff1));
-  else if (dampflag == 1) return MathSpecial::powint(sin(0.5 * MathConst::MY_PI * (r - cutoff1) / (cutoff2 - cutoff1)), 2);
+  if (dampflag == 0) return MathSpecial::fm_exp(-0.5 * (r - cutoff2) 
+    (r - cutoff2) / (cutoff1 * cutoff1));
+  else if (dampflag == 1) return MathSpecial::powint(sin(0.5 *
+    MathConst::MY_PI * (r - cutoff1) / (cutoff2 - cutoff1)), 2);
 }
 

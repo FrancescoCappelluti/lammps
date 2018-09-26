@@ -12,7 +12,8 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Contributing author: Francesco Cappelluti (francesco.cappelluti@graduate.univaq.it)
+   Contributing author: Francesco Cappelluti
+    (francesco.cappelluti@graduate.univaq.it)
 ------------------------------------------------------------------------- */
 
 #ifndef LMP_FIX_FRESP_H
@@ -27,13 +28,19 @@ class FixFResp : public Fix {
   FixFResp(class LAMMPS *, int, char **);
   virtual ~FixFResp() = 0;
   int setmask();
-  virtual void pre_force(int) = 0; //charges are updated in the new geometry and forces (in real space) due to charge variation are added
-  virtual void setup_pre_force(int) = 0; //charges are set according to starting geometry
-  virtual void pre_reverse(int, int) = 0; //forces due to charge variation are added
+  //charges are updated in the new geometry and forces (in real space) due
+  //to charge variation are added
+  virtual void pre_force(int) = 0;
+  //charges are set according to starting geometry
+  virtual void setup_pre_force(int) = 0;
+  //forces due to charge variation are added 
+  virtual void pre_reverse(int, int) = 0;
   void setup_pre_reverse(int, int);
-  virtual void post_neighbor() = 0; //after neighbor list are reconstructed, bond Verlet lists are scaled (if necessary) and cleared
-  void init_list(int, class NeighList *); //added as in fix_qeq in order to use Verlet lists
-  void init(); //added in order to initialize list
+  //after neighbor list are reconstructed, bond Verlet lists are scaled
+  //(if necessary) and cleared
+  virtual void post_neighbor() = 0;
+  void init_list(int, class NeighList *);
+  void init();
   virtual double memory_usage() = 0;
   int pack_forward_comm(int, int *, double *, int, int *);
   void unpack_forward_comm(int, int, double *);
@@ -47,21 +54,28 @@ class FixFResp : public Fix {
   void read_file(char*);
   void read_file_types(char*);
   int nevery; //charges will be updated each nevery steps
-  double cutoff1, cutoff2, cutoff3; //cutoffs in real space for electric field calculation
-                                    //if distance is less than cutoff1, Efield is 0
-                                    //if distance is between cutoff1 and cutoff2, Efield is damped
-                                    //if distance is between cutoff2 and cutoff3, Efield is not damped
-                                    //else, no contribution in real space
+  //cutoffs in real space for electric field calculation. If distance is less
+  //than cutoff1, Efield is 0. If distance is between cutoff1 and cutoff2,
+  //Efield is damped. If distance is between cutoff2 and cutoff3, Efield is
+  //not damped.
+  double cutoff1, cutoff2, cutoff3;                  
   double *q0, *qgen;
-  //index 1 is type of first atom of the bond, index 2 is type of second atom and index 3 is type of center
+  //index 1 is type of first atom of the bond, index 2 is type of second atom
+  //and index 3 is type of center
   double ***k_bond; 
-  //index 1 is type of first atom of the angle, index 2 is type of second atom, index 3 is type of third atom and index 4 is type of center
+  //index 1 is type of first atom of the angle, index 2 is type of second atom,
+  //index 3 is type of third atom and index 4 is type of center
   double ****k_angle; 
-  //index 1 is type of first atom of the dihedral, index 2 is type of second atom, index 3 is type of third atom, index 4 is type of fourth atom and index 5 is type of center
+  //index 1 is type of first atom of the dihedral, index 2 is type of second
+  //atom, index 3 is type of third atom, index 4 is type of fourth atom and
+  //index 5 is type of center
   double *****k_dihedral;
-  //index 1 is type of first atom of the improper, index 2 is type of second atom, index 3 is type of third atom, index 4 is type of fourth atom and index 5 is type of center
+  //index 1 is type of first atom of the improper, index 2 is type of second
+  //atom, index 3 is type of third atom, index 4 is type of fourth atom and
+  //index 5 is type of center
   double *****k_improper;
-  //index 1 is type of first atom of the bond, index 2 is type of second atom and index 3 is type of center
+  //index 1 is type of first atom of the bond, index 2 is type of second atom
+  //and index 3 is type of center
   double ***k_Efield; 
   bigint **mol_map;
   bigint nmolecules; //Number of molecules
@@ -73,14 +87,21 @@ class FixFResp : public Fix {
   virtual void q_update_Efield_bond() = 0;
   class NeighList *list; //added as in fix_qeq in order to use Verlet lists
   int nbond_old;
-  //index 1 is bond index in bondlist, index 2 is atom index in Verlet list union for middle bond point and index 3 is the component of the vector derivative
+  //index 1 is bond index in bondlist, index 2 is atom index in Verlet list
+  //union for middle bond point and index 3 is the component of
+  //the vector derivative
   double ***dEr_vals;
-  //index 1 is bond index in bondlist, index 2 is atom index in Verlet list union for middle bond point and index 3 is 0 for distance between center and atom 1 and 1 for distance between center and atom2
+  //index 1 is bond index in bondlist, index 2 is atom index in Verlet list
+  //union for middle bond point and index 3 is 0 for distance between center
+  //and atom 1 and 1 for distance between center and atom2
   double ***distances;
-  //index 1 is bond index in bondlist, index 2 is atom index in Verlet list union for middle bond point
+  //index 1 is bond index in bondlist, index 2 is atom index in Verlet list
+  //union for middle bond point
   tagint ***dEr_indexes;
   int **bond_extremes_pos;
-  double *erfc_erf_arr; //array where sum of erfcs and erfs between atom and each other in its Verlet list is stored
+  //array where sum of erfcs and erfs between atom and each other in its
+  //Verlet list is stored 
+  double *erfc_erf_arr;
   double q2, qsum, qsqsum, scale, triclinic, accuracy, g_ewald;
   double unitk[3]; 
   int kxmax,kymax,kzmax;
@@ -108,15 +129,15 @@ class FixFResp : public Fix {
   //virtual double Efield_damping(int, double, double, double) = 0;
   void build_erfc_erf_arr();
   void build_bond_Verlet_list(int, tagint, tagint);
-  double ***appo2, **appo3; //arrays used by kspace force corrections calculation
+  double ***appo2, **appo3; //arrays used by kspace force correction calculation
   char *id_pe;
   int pack_flag;
   int count_total_bonds();
   short *already_cycled;
   class Compute *pe; // PE compute pointer
   double **kvecs; //vectors in k-space
-  double *bondvskprod_vec, *xmkprod_vec, *Im_xm_vec, *Re_xm_vec, *tmp1;
-  double *appo2Re_pref_vec, *appo2Im_pref_vec, *Im_prod_vec, *Re_prod_vec, *tmp2;
+  double *bondvskprod_vec, *xmkprod_vec, *Im_xm_vec, *Re_xm_vec, *tmp1, *tmp2;
+  double *appo2Re_pref_vec, *appo2Im_pref_vec, *Im_prod_vec, *Re_prod_vec;
 };
 
 }

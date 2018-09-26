@@ -12,7 +12,8 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Contributing author: Francesco Cappelluti (francesco.cappelluti@graduate.univaq.it)
+   Contributing author: Francesco Cappelluti
+    (francesco.cappelluti@graduate.univaq.it)
 ------------------------------------------------------------------------- */
 
 #ifdef FIX_CLASS
@@ -32,10 +33,10 @@ class FixFRespEwald : public FixFResp {
  public:
   FixFRespEwald(class LAMMPS *, int, char **);
   ~FixFRespEwald();
-  void pre_force(int); //charges are updated in the new geometry and forces (in real space) due to charge variation are added
-  void setup_pre_force(int); //charges are set according to starting geometry
-  void pre_reverse(int, int); //forces due to charge variation are added
-  void post_neighbor(); //after neighbor list are reconstructed, bond Verlet lists are scaled (if necessary) and cleared
+  void pre_force(int);
+  void setup_pre_force(int);
+  void pre_reverse(int, int);
+  void post_neighbor();
   double memory_usage();
   int pack_reverse_comm(int, int, double *);
   void unpack_reverse_comm(int, int *, double *);

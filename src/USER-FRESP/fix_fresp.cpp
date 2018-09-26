@@ -12,7 +12,8 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Contributing author: Francesco Cappelluti (francesco.cappelluti@graduate.univaq.it)
+   Contributing author: Francesco Cappelluti 
+     (francesco.cappelluti@graduate.univaq.it)
 ------------------------------------------------------------------------- */
 
 #include <math.h>
@@ -54,9 +55,10 @@ using namespace FixConst;
 /* ---------------------------------------------------------------------- */
 
 FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg), list(NULL), kxvecs(NULL), kyvecs(NULL), kzvecs(NULL), pe(NULL),
-  ug(NULL), eg(NULL), vg(NULL), ek(NULL), sfacrl_qgen(NULL), sfacim_qgen(NULL), sfacrl_all_qgen(NULL), 
-  sfacim_all_qgen(NULL), cs(NULL), sn(NULL), cs_qgen(NULL), sn_qgen(NULL)
+  Fix(lmp, narg, arg), list(NULL), kxvecs(NULL), kyvecs(NULL), kzvecs(NULL),
+  pe(NULL), ug(NULL), eg(NULL), vg(NULL), ek(NULL), sfacrl_qgen(NULL),
+  sfacim_qgen(NULL), sfacrl_all_qgen(NULL), sfacim_all_qgen(NULL), cs(NULL),
+  sn(NULL), cs_qgen(NULL), sn_qgen(NULL)
 {
   int i, j, k, iarg;
   bigint *tmp;
@@ -71,11 +73,13 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
   average_mol_size = cutoff1 = cutoff2 = 0.0;
 
   if (!force->newton_bond)
-    error->all(FLERR,"Fix fresp can be used only with newton_bond on (for the moment)");
+    error->all(FLERR,"Fix fresp can be used only with newton_bond on \
+      (for the moment)");
   if (strcmp(atom->atom_style, "full") != 0)
     error->all(FLERR,"Fix fresp can be used only with full atom_style");
   //if (strcmp(force->kspace_style, "ewald") != 0)
-  //  error->all(FLERR,"Fix fresp can be used only with ewald kspace_style (for the moment)");
+  //  error->all(FLERR,"Fix fresp can be used only with ewald kspace_style
+  //    (for the moment)");
 
   //nevery = force->inumeric(FLERR,arg[3]); nevery != 1 not yet implemented.
   nevery = 1;
@@ -87,7 +91,8 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
 
   // create arrays for storing FRESP coefficients
   memory->create(types, (int)atom->natoms, "fresp:types");
-  for (i = 0; i < atom->nlocal; i++) if (atom->molecule[i] > nmolecules) nmolecules = atom->molecule[i];
+  for (i = 0; i < atom->nlocal; i++) if (atom->molecule[i] > nmolecules)
+    nmolecules = atom->molecule[i];
 
   //nmolecules is the number of molecules in the simulation
   MPI_Allreduce(MPI_IN_PLACE, &nmolecules, 1, MPI_LMP_BIGINT, MPI_MAX, world);
@@ -100,7 +105,8 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
   MPI_Barrier(world);
 
   for (i = 0; i < nmolecules; i++) {
-    //After the reduction, each process know the number of atoms contained in each molecule
+    //After the reduction, each process know the number of atoms contained
+    //  in each molecule
     MPI_Allreduce(MPI_IN_PLACE, &counter[i], 1, MPI_INT, MPI_SUM, world);
     mol_map[i] = (bigint*)calloc(counter[i] + 1, sizeof(bigint));
 
@@ -112,20 +118,26 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
   MPI_Barrier(world);
   average_mol_size /= (double) nmolecules;
 
-  //Each row of mol_map is filled with global indexes of atoms holded by the process starting by position 1
-  for (i = 0; i < atom->nlocal; i++) mol_map[atom->molecule[i] - 1][counter[atom->molecule[i] - 1]++ + 1] = atom->tag[i];
+  //Each row of mol_map is filled with global indexes of atoms holded
+  //  by the process starting by position 1
+  for (i = 0; i < atom->nlocal; i++)
+    mol_map[atom->molecule[i] - 1][counter[atom->molecule[i] - 1]++ + 1] =
+    atom->tag[i];
   MPI_Barrier(world);
 
   int *c_arr, *s_arr;
   for (i = 0; i < nmolecules; i++) {
     memory->create(c_arr, comm->nprocs, "fresp:c_arr");
     memory->create(s_arr, comm->nprocs, "fresp:s_arr");
-    for (j = 0; j < comm->nprocs; j++) s_arr[j] = 0; //Without this, it seems not to work
+    for (j = 0; j < comm->nprocs; j++)
+      s_arr[j] = 0; //Without this, it seems not to work
 
-    //After gathering, each element of c_arr is the number of atoms from each molecule holded by each process
+    //After gathering, each element of c_arr is the number of atoms
+    //  from each molecule holded by each process
     MPI_Allgather(&counter[i], 1, MPI_INT, c_arr, 1, MPI_INT, world);
 
-    //After the cycle, each element of s_arr is the sum of preceding elements in c_arr
+    //After the cycle, each element of s_arr is the sum of preceding elements
+    //  in c_arr
     for (j = 1; j < comm->nprocs; j++) {
       for (k = j; k < comm->nprocs; k++) {
         s_arr[k] += c_arr[j - 1];
@@ -134,13 +146,17 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
     MPI_Barrier(world);
 
     memory->create(tmp, (int)mol_map[i][0], "fresp:tmp");
-    /*Without passing through the temporary array tmp, vectors superpose in destination when molecule is shared between boxes
+    /*Without passing through the temporary array tmp, vectors superpose
+        in destination when molecule is shared between boxes
     
-    With Allgather, the partial arrays contained in mol_map[i] are joined in order that each process know which
-    atoms are contained in each molecule*/
+    With Allgather, the partial arrays contained in mol_map[i] are joined
+      in order that each process know which atoms are contained
+      in each molecule*/
    
-    //MPI_Allgatherv(MPI_IN_PLACE, counter[i], MPI_LMP_BIGINT, mol_map[i] + 1, c_arr, s_arr, MPI_LMP_BIGINT, world);
-    MPI_Allgatherv(mol_map[i] + 1, counter[i], MPI_LMP_BIGINT, tmp, c_arr, s_arr, MPI_LMP_BIGINT, world);
+    //MPI_Allgatherv(MPI_IN_PLACE, counter[i], MPI_LMP_BIGINT, mol_map[i] + 1,
+    //  c_arr, s_arr, MPI_LMP_BIGINT, world);
+    MPI_Allgatherv(mol_map[i] + 1, counter[i], MPI_LMP_BIGINT, tmp, c_arr,
+      s_arr, MPI_LMP_BIGINT, world);
     memcpy(&mol_map[i][1], tmp, mol_map[i][0] * sizeof(bigint));
 
     memory->destroy(tmp);
@@ -173,9 +189,10 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
   bondvskprod_vec = xmkprod_vec = Im_xm_vec = Re_xm_vec = tmp1 = tmp2 = NULL;
   appo2Re_pref_vec = appo2Im_pref_vec = Im_prod_vec = Re_prod_vec = NULL;
 
-  feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW); //Floating point exceptions
+  //Floating point exceptions
+  feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
 
-  //Adding this compute here, it should be not necessary to add it in input file.
+  //Adding this compute here, it is not necessary to add it in input file.
   id_pe = "fresp_eatom";
   char str1[] = "all";
   char str2[] = "pe/atom";
@@ -191,7 +208,8 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
   
   if (force->pair->ncoultablebits > 0) {
     force->pair->ncoultablebits = 0;
-    printf("In order to correctly use fix fresp, ncoultablebits is set to 0.\n");
+    printf("In order to correctly use fix fresp, \
+      ncoultablebits is set to 0.\n");
   }  
 }
 
@@ -277,9 +295,11 @@ int FixFResp::pack_forward_comm(int n, int *list, double *buf,
 {
   int m;
 
-  if (pack_flag == 1) for(m = 0; m < n; m++) buf[m] = force->kspace->eatom[list[m]];
+  if (pack_flag == 1) for(m = 0; m < n; m++) buf[m] =
+    force->kspace->eatom[list[m]];
   else if (pack_flag == 2) for(m = 0; m < n; m++) buf[m] = atom->q[list[m]];
-  else if (pack_flag == 3) for(m = 0; m < n; m++) buf[m] = erfc_erf_arr[list[m]];
+  else if (pack_flag == 3) for(m = 0; m < n; m++) buf[m] =
+    erfc_erf_arr[list[m]];
 
   return m;
 }
@@ -290,9 +310,12 @@ void FixFResp::unpack_forward_comm(int n, int first, double *buf)
 {
   int i, m;
 
-  if (pack_flag == 1) for(m = 0, i = first; m < n; m++, i++) force->kspace->eatom[i] = buf[m];
-  else if (pack_flag == 2) for(m = 0, i = first; m < n; m++, i++) atom->q[i] = buf[m];
-  else if (pack_flag == 3) for(m = 0, i = first; m < n; m++, i++) erfc_erf_arr[i] = buf[m];
+  if (pack_flag == 1) for(m = 0, i = first; m < n; m++, i++)
+    force->kspace->eatom[i] = buf[m];
+  else if (pack_flag == 2) for(m = 0, i = first; m < n; m++, i++)
+    atom->q[i] = buf[m];
+  else if (pack_flag == 3) for(m = 0, i = first; m < n; m++, i++)
+    erfc_erf_arr[i] = buf[m];
 }
 
 /* ---------------------------------------------------------------------
@@ -301,7 +324,8 @@ void FixFResp::unpack_forward_comm(int n, int first, double *buf)
 
 void FixFResp::q_update_angle()
 {
-  bigint atom1, atom2, atom3, global_atom1, global_atom2, global_atom3, global_center, molecule;
+  bigint atom1, atom2, atom3, global_atom1, global_atom2, global_atom3,
+    global_center, molecule;
   double delx1, dely1, delz1, delx2, dely2, delz2, r1, r2, a, a0, da, k, c;
   double **x = atom->x;
   int atype, atom1_t, atom2_t, atom3_t, center_t, m, n;
@@ -337,8 +361,8 @@ void FixFResp::q_update_angle()
     a0 = force->angle->equilibrium_angle(atype);
     da = a - a0;
 
-    //A cycle over all the atoms in the same molecule of the angle is done in order
-    //to correct their charges according to k_angle coefficient
+    //A cycle over all the atoms in the same molecule of the angle is done
+    //  in order to correct their charges according to k_angle coefficient
     for (m = 1; m <= mol_map[molecule - 1][0]; m++) { 
       global_center = mol_map[molecule - 1][m] - 1;
       atom1_t = types[global_atom1];
@@ -347,7 +371,8 @@ void FixFResp::q_update_angle()
       center_t = types[global_center];
       k = k_angle[atom1_t][atom2_t][atom3_t][center_t];
       
-      //Charge variation are put in deltaq instead of atom->q in order to permit their communication to other processes
+      //Charge variation are put in deltaq instead of atom->q in order
+      //  to permit their communication to other processes
       deltaq[atom->map((int)global_center + 1)] += k * da;
     }
   }
@@ -359,10 +384,11 @@ void FixFResp::q_update_angle()
 
 void FixFResp::q_update_dihedral()
 {
-/*  bigint center, atom1, atom2, atom3, atom4, global_atom1, global_atom2, global_atom3, global_atom4, global_center, molecule;
-  double vb1x, vb1y, vb1z, vb2x, vb2y, vb2z, vb3x, vb3y, vb3z, vb2xm, vb2ym, vb2zm;
+/*  bigint center, atom1, atom2, atom3, atom4, global_atom1, global_atom2;
+  bigint global_atom3, global_atom4, global_center, molecule;
+  double vb1x, vb1y, vb1z, vb2x, vb2y, vb2z, vb3x, vb3y, vb3z, vb2xm, vb2ym;
   double ax, ay, az, bx, by, bz, rasq, rbsq, rgsq, rg, ra2inv, rb2inv, rabinv;
-  double s, c;
+  double s, c, vb2zm;
   double d, dd;
   double **x = atom->x;
   double k; //k coeff for dihedral variation
@@ -437,7 +463,8 @@ void FixFResp::q_update_dihedral()
       center_t = types[global_center] - 1;
       k = k_dihedral[atom1_t][atom2_t][atom3_t][atom4_t][center_t];
 
-      //Charge variation are put in deltaq instead of atom->q in order to permit their communication to other processes
+      //Charge variation are put in deltaq instead of atom->q in order
+      //to permit their communication to other processes
       deltaq[global_center - 1] += k * dd;
     }
   }
@@ -449,7 +476,8 @@ void FixFResp::q_update_dihedral()
 
 void FixFResp::q_update_improper()
 {
-/*  bigint center, atom1, atom2, atom3, atom4, global_atom1, global_atom2, global_atom3, global_atom4, global_center, molecule;
+/*  bigint center, atom1, atom2, atom3, atom4, global_atom1, global_atom2;
+  bigint global_atom3, global_atom4, global_center, molecule;
   double vb1x, vb1y, vb1z, vb2x, vb2y, vb2z, vb3x, vb3y, vb3z;
   double ss1, ss2, ss3, r1, r2, r3, c0, c1, c2, s1, s2;
   double s12, c;
@@ -525,7 +553,8 @@ void FixFResp::q_update_improper()
       center_t = types[global_center] - 1;
       k = k_improper[atom1_t][atom2_t][atom3_t][atom4_t][center_t];
 
-      //Charge variation are put in deltaq instead of atom->q in order to permit their communication to other processes
+      //Charge variation are put in deltaq instead of atom->q in order
+      //to permit their communication to other processes
       deltaq[global_center - 1] += k * dim;
     }
   }
@@ -542,7 +571,8 @@ void FixFResp::setup_pre_reverse(int eflag, int vflag)
 
 void FixFResp::read_file(char *file)
 {
-  int parseflag = -1, params_per_line = 6, atom1_t, atom2_t, atom3_t, atom4_t, center_t;
+  int parseflag = -1, params_per_line = 6, atom1_t, atom2_t, atom3_t,
+    atom4_t, center_t;
   FILE *fp;
   char **words = new char*[params_per_line+1];
   int n, nwords, eof;
@@ -580,41 +610,51 @@ void FixFResp::read_file(char *file)
       else if ((ptr = strstr(line, "qgen"))) parseflag = 1;
       else if ((ptr = strstr(line, "k_bond"))) {
 
-        // if not already existing, create a tensor where the 1st index is atom1
-        // of bond, the 2nd is atom2 and the 3rd is center whose charge is changed
-        if (!k_bond) memory->create(k_bond, natypes, natypes, natypes, "fresp:k_bond");
+        //if not already existing, create a tensor where the 1st index
+        //is atom1 of bond, the 2nd is atom2 and the 3rd is center
+        //whose charge is changed
+        if (!k_bond) memory->create(k_bond, natypes, natypes, natypes,
+          "fresp:k_bond");
         parseflag = 2;
         bondflag = true; 
       }
       else if ((ptr = strstr(line, "k_angle"))) {
   
-        // if not already existing, create a tensor where the 1st index is atom1 of angle,
-        // the 2nd is atom2, the 3rd is atom3 and the 4th is center whose charge is changed
-        if (!k_angle) memory->create(k_angle, natypes, natypes, natypes, natypes, "fresp:k_angle");
+        //if not already existing, create a tensor where the 1st index
+        //is atom1 of angle, the 2nd is atom2, the 3rd is atom3
+        //and the 4th is center whose charge is changed
+        if (!k_angle) memory->create(k_angle, natypes, natypes, natypes,
+          natypes, "fresp:k_angle");
         parseflag = 3;
         angleflag = true;
       }
       else if ((ptr = strstr(line, "k_dihedral"))) {
 
-        // if not already existing, create a tensor where the 1st index is atom1 of dihedral, the 2nd
-        // is atom2, the 3rd is atom3, the 4th is atom4 and the 5th is center whose charge is changed
-        if (!k_dihedral) memory->create(k_dihedral, natypes, natypes, natypes, natypes, natypes, "fresp:k_dihedral");
+        //if not already existing, create a tensor where the 1st index
+        //is atom1 of dihedral, the 2nd is atom2, the 3rd is atom3,
+        //the 4th is atom4 and the 5th is center whose charge is changed
+        if (!k_dihedral) memory->create(k_dihedral, natypes, natypes,
+          natypes, natypes, natypes, "fresp:k_dihedral");
         parseflag = 4;
         dihedralflag  = true;
       }
       else if ((ptr = strstr(line, "k_improper"))) {
 
-        // if not already existing, create a tensor where the 1st index is atom1 of improper, the 2nd
-        // is atom2, the 3rd is atom3, the 4th is atom4 and the 5th is center whose charge is changed
-        if (!k_improper) memory->create(k_improper, natypes, natypes, natypes, natypes, natypes, "fresp:k_improper");
+        //if not already existing, create a tensor where the 1st index
+        //is atom1 of improper, the 2nd is atom2, the 3rd is atom3,
+        //the 4th is atom4 and the 5th is center whose charge is changed
+        if (!k_improper) memory->create(k_improper, natypes, natypes,
+          natypes, natypes, natypes, "fresp:k_improper");
         parseflag = 5;
         improperflag = true;
       }
       else if ((ptr = strstr(line, "k_Efield"))) {
 
-        // if not already existing, create a tensor where the 1st index is atom1
-        // of bond, the 2nd is atom2 and the 3rd is center whose charge is changed
-        if (!k_Efield) memory->create(k_Efield, natypes, natypes, natypes, "fresp:k_Efield");
+        //if not already existing, create a tensor where the 1st index
+        //is atom1 of bond, the 2nd is atom2 and the 3rd is center
+        //whose charge is changed
+        if (!k_Efield) memory->create(k_Efield, natypes, natypes,
+          natypes, "fresp:k_Efield");
         parseflag = 6;
         Efieldflag =  true;
         
@@ -663,8 +703,10 @@ void FixFResp::read_file(char *file)
       atom2_t = atoi(words[2]);
       atom3_t = atoi(words[3]);
       atom4_t = atoi(words[4]);
-      k_dihedral[atom1_t][atom2_t][atom3_t][atom4_t][center_t] = atof(words[5]);
-      k_dihedral[atom4_t][atom3_t][atom2_t][atom1_t][center_t] = atof(words[5]);
+      k_dihedral[atom1_t][atom2_t][atom3_t][atom4_t][center_t] =
+        atof(words[5]);
+      k_dihedral[atom4_t][atom3_t][atom2_t][atom1_t][center_t] =
+        atof(words[5]);
       break;
     
     case 5:
@@ -672,8 +714,10 @@ void FixFResp::read_file(char *file)
       atom2_t = atoi(words[2]);
       atom3_t = atoi(words[3]);
       atom4_t = atoi(words[4]);
-      k_improper[atom1_t][atom2_t][atom3_t][atom4_t][center_t] = atof(words[5]);
-      k_improper[atom4_t][atom3_t][atom2_t][atom1_t][center_t] = atof(words[5]);
+      k_improper[atom1_t][atom2_t][atom3_t][atom4_t][center_t] =
+        atof(words[5]);
+      k_improper[atom4_t][atom3_t][atom2_t][atom1_t][center_t] =
+        atof(words[5]);
       break;
     
     case 6:
@@ -773,7 +817,8 @@ void FixFResp::build_bond_Verlet_list(int bond, tagint atom1, tagint atom2)
   atom1_counter = counter = list->numneigh[atom1];
   for (i = 0; i < atom1_counter; i++) {
     verlet_list_union[i] = list->firstneigh[atom1][i] & NEIGHMASK;
-    if (atom->tag[verlet_list_union[i]] == atom->tag[atom2]) bond_extremes_pos[bond][1] = i;
+    if (atom->tag[verlet_list_union[i]] == atom->tag[atom2])
+      bond_extremes_pos[bond][1] = i;
   }
 
   for (i = 0; i < list->numneigh[atom2]; i++) {
@@ -786,19 +831,22 @@ void FixFResp::build_bond_Verlet_list(int bond, tagint atom1, tagint atom2)
       }
     }
     if (!bflag) {
-      if (atom->tag[j] == atom->tag[atom1]) bond_extremes_pos[bond][0] = counter;
+      if (atom->tag[j] == atom->tag[atom1])
+        bond_extremes_pos[bond][0] = counter;
       verlet_list_union[counter++] = j;
     }
   }
 
   //Verlet list contains bonded atoms too
-  //array of derivatives for direct Efield * bond unit vector is allocated with first dimension that is
-  //number of atoms in Verlet list of bond
+  //array of derivatives for direct Efield * bond unit vector is allocated
+  //with first dimension that is number of atoms in Verlet list of bond
   memory->create(dEr_vals[bond], counter, 3, "fresp:dEr_vals comp");
   memory->create(distances[bond], counter, 2, "fresp:distances comp");
-  dEr_indexes[bond] = (tagint**) memory->smalloc((counter + 1) * sizeof(tagint*), "fresp:dEr_indexes comp");
+  dEr_indexes[bond] = (tagint**) memory->smalloc((counter + 1) *
+    sizeof(tagint*), "fresp:dEr_indexes comp");
   dEr_indexes[bond][0] = (tagint*) calloc(3, sizeof(tagint));
-  for (i = 1; i <= counter; i++) dEr_indexes[bond][i] = (tagint*) calloc(2, sizeof(tagint));
+  for (i = 1; i <= counter; i++) dEr_indexes[bond][i] = (tagint*)
+    calloc(2, sizeof(tagint));
 
   //dEr_indexes[bond][0][0] counts the number of atoms in bond Verlet list
   dEr_indexes[bond][0][0] = (tagint)counter;
@@ -807,8 +855,10 @@ void FixFResp::build_bond_Verlet_list(int bond, tagint atom1, tagint atom2)
   //dEr_indexes[bond][0][2] is atom2 (as neighbor->bondlist[bond][2])
   dEr_indexes[bond][0][2] = (tagint)atom2;
 
-  //verlet_list_union elements are copied into dEr_indexes in order to use the latter in the cycle of q_update_Efield
-  for (i = 1; i <= counter; i++) dEr_indexes[bond][i][0] = verlet_list_union[i - 1];
+  //verlet_list_union elements are copied into dEr_indexes in order to use the
+  //latter in the cycle of q_update_Efield
+  for (i = 1; i <= counter; i++) dEr_indexes[bond][i][0] =
+    verlet_list_union[i - 1];
 }
 
 /* ---------------------------------------------------------------------- 
@@ -839,7 +889,9 @@ void FixFResp::build_erfc_erf_arr()
   char molflag;
   tagint atom1, atom2, global_atom1, global_atom2, center;
   double ra1l, ra2l, ra1lsq, ra2lsq, grij, erfc;
-  const double main_gewald = force->kspace->g_ewald, qscale = force->qqrd2e * 1.0; //1.0 is scale
+  double **cutsq = force->pair->cutsq;
+  const double main_gewald = force->kspace->g_ewald, qscale = force->qqrd2e *
+    1.0; //1.0 is scale
 
   for (bond = 0; bond < nbond_old; bond++) {
     atom1 = dEr_indexes[bond][0][1];
@@ -848,8 +900,8 @@ void FixFResp::build_erfc_erf_arr()
     global_atom1 = atom->tag[atom1];
     global_atom2 = atom->tag[atom2];
 
-    //Needed because, in some cases, atom? is very big and num_bond[atom?] returns strange results
-    //Maybe domain->closest_image() can be useful.
+    //Needed because, in some cases, atom? is very big and num_bond[atom?]
+    //returns strange results. Maybe domain->closest_image() can be useful.
     if (atom1 > atom->natoms) atom1 = atom->map(global_atom1);
     if (atom2 > atom->natoms) atom2 = atom->map(global_atom2);
     atom1_type = type[atom1];
@@ -861,8 +913,10 @@ void FixFResp::build_erfc_erf_arr()
       molflag = atom->molecule[atom1] == atom->molecule[center];
       ra1lsq = distances[bond][i - 1][0];
       ra2lsq = distances[bond][i - 1][1];
-      //Check if ra1lsq > 0.0 is needed because atom1 itself can be contained in dEr_indexes[bond]
-      if (!already_cycled[atom1] && ra1lsq < force->pair->cutsq[atom1_type][center_type] && ra1lsq > 0.0) {
+      //Check if ra1lsq > 0.0 is needed because atom1 itself can be contained
+      //in dEr_indexes[bond]
+      if (!already_cycled[atom1] && ra1lsq < cutsq[atom1_type][center_type] &&
+        ra1lsq > 0.0) {
         ra1l = sqrt(ra1lsq);
         grij = main_gewald * ra1l;
         #ifdef __INTEL_MKL__
@@ -873,8 +927,10 @@ void FixFResp::build_erfc_erf_arr()
         if (!molflag) erfc_erf_arr[atom1] += atom->q[center] * erfc / ra1l;
         else erfc_erf_arr[atom1] -= atom->q[center] * (1.0 - erfc) / ra1l;
       }
-      //Check if ra2lsq > 0.0 is needed because atom2 itself can be contained in dEr_indexes[bond]
-      if (!already_cycled[atom2] && ra2lsq < force->pair->cutsq[atom2_type][center_type] && ra2lsq > 0.0) {
+      //Check if ra2lsq > 0.0 is needed because atom2 itself can be contained
+      //in dEr_indexes[bond]
+      if (!already_cycled[atom2] && ra2lsq < cutsq[atom2_type][center_type]
+        && ra2lsq > 0.0) {
         ra2l = sqrt(ra2lsq);
         grij = main_gewald * ra2l;
         #ifdef __INTEL_MKL__
