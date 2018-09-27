@@ -205,8 +205,8 @@ void FixFRespDsf::q_update_Efield_bond()
       for (i = 0; i < dEr_indexes[bond][0][0]; i++) dEr_vals[bond][i][0] =
         dEr_vals[bond][i][1] = dEr_vals[bond][i][2] = 0.0;
 
-      //The cycle is done over all the counter atoms contained in the union of
-      //the Verlet lists of bond extremes
+      //The cycle is done over all the atoms contained 
+      //in the Verlet list of bond
       for (i = 0; i < dEr_indexes[bond][0][0]; i++) {
         iplusone = i + 1;
         center = dEr_indexes[bond][iplusone][0];
@@ -438,6 +438,9 @@ void FixFRespDsf::setup_pre_force(int vflag)
     dEr_indexes[i] = NULL;
   }
 
+  //Build new neighbor lists needed by F-RESP
+  neighbor->build_one(list);
+
   for (i = 0; i < atom->nlocal; i++) {
     for (j = 0; j < atom->num_bond[i]; j++) {
       atom1 = atom->map(atom->bond_atom[i][j]);
@@ -491,6 +494,9 @@ void FixFRespDsf::post_neighbor()
       dEr_indexes[i] = NULL;
     }
   }
+
+  //Build new neighbor lists needed by F-RESP
+  neighbor->build_one(list);
 
   for (i = 0; i < atom->nlocal; i++) {
     for (j = 0; j < atom->num_bond[i]; j++) {

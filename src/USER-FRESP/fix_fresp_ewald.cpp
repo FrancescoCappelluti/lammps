@@ -1295,8 +1295,8 @@ void FixFRespEwald::q_update_Efield_bond()
       for (i = 0; i < dEr_indexes[bond][0][0]; i++) dEr_vals[bond][i][0] =
         dEr_vals[bond][i][1] = dEr_vals[bond][i][2] = 0.0;
 
-      //The cycle is done over all the counter atoms contained in the union
-      //of the Verlet lists of bond extremes. Calculate E and its gradient
+      //The cycle is done over all the atoms contained in the 
+      //Verlet list of bond. Calculate E and its gradient
       //in direct space with bonded correction due to Ewald summation too
       for (i = 0; i < dEr_indexes[bond][0][0]; i++) {
         center = dEr_indexes[bond][i + 1][0];
@@ -1656,6 +1656,9 @@ void FixFRespEwald::setup_pre_force(int vflag)
     dEr_indexes[i] = NULL;
   }
 
+  //Build new neighbor lists needed by F-RESP
+  neighbor->build_one(list);
+
   for (i = 0; i < atom->nlocal; i++) {
     for (j = 0; j < atom->num_bond[i]; j++) {
       atom1 = atom->map(atom->bond_atom[i][j]);
@@ -1678,9 +1681,6 @@ void FixFRespEwald::post_neighbor()
 {
   int i, j, end, bond = 0;
   bigint atom1;
-
-  if (comm->me == 0) fprintf(stderr, "Neighbor list rebuilding is at step \
-    %i.\n", update->ntimestep);
 
   //Content of dEr_vals, dEr_indexes and distances arrays is freed.
   //Could find a more efficient way than freeing all these arrays so many times
@@ -1718,6 +1718,9 @@ void FixFRespEwald::post_neighbor()
     memory->destroy(appo2);
     memory->create(appo2, nbond_old, kcount, 6, "fresp:appo2");
   }
+
+  //Build new neighbor lists needed by F-RESP
+  neighbor->build_one(list);
 
   for (i = 0; i < atom->nlocal; i++) {
     for (j = 0; j < atom->num_bond[i]; j++) {

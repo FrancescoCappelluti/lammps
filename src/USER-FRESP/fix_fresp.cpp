@@ -259,13 +259,30 @@ void FixFResp::init_list(int id, NeighList *ptr)
 
 void FixFResp::init()
 {
+  //In following line, 1.0 is considered to be a maximal half-bond length
+  double cutghost, mycutneigh = cutoff3 + neighbor->skin + 1.0;
+  if (force->pair)
+    cutghost = MAX(force->pair->cutforce + neighbor->skin, comm->cutghostuser);
+  else
+    cutghost = comm->cutghostuser;
+
+  if (mycutneigh > cutghost) {
+    //ceil(mycutneigh) is the smallest integer equal or bigger to mycutneigh
+    comm->cutghostuser = ceil(mycutneigh);
+    printf("cutghostuser set to %lf in order to correctly use fix fresp", 
+      ceil(mycutneigh));
+  }
   int irequest = neighbor->request(this, instance_me);
   neighbor->requests[irequest]->half = 0;
   neighbor->requests[irequest]->full = 1;
   neighbor->requests[irequest]->pair = 0;
   neighbor->requests[irequest]->fix = 1;
   neighbor->requests[irequest]->newton = 2;
-  neighbor->requests[irequest]->ghost = 1;
+  neighbor->requests[irequest]->occasional = 1;
+  if (cutoff3 > force->pair->cutforce) {
+    neighbor->requests[irequest]->cut = 1;
+    neighbor->requests[irequest]->cutoff = cutoff3 + neighbor->skin + 1.0;
+  }
 
   // set pe ptr
   int icompute = modify->find_compute(id_pe);
@@ -809,54 +826,38 @@ void FixFResp::build_bond_Verlet_list(int bond, tagint atom1, tagint atom2)
   char bflag;
   int i, n, atom1_counter, counter;
   tagint j;
-  int total_size = list->numneigh[atom1] + list->numneigh[atom2];
-  tagint verlet_list_union[total_size];
 
-  atom1_counter = counter = list->numneigh[atom1];
-  for (i = 0; i < atom1_counter; i++) {
-    verlet_list_union[i] = list->firstneigh[atom1][i] & NEIGHMASK;
-    if (atom->tag[verlet_list_union[i]] == atom->tag[atom2])
-      bond_extremes_pos[bond][1] = i;
-  }
-
-  for (i = 0; i < list->numneigh[atom2]; i++) {
-    bflag = 0;
-    j = list->firstneigh[atom2][i] & NEIGHMASK;
-    for (n = 0; n < atom1_counter; n++) {
-      if (atom->tag[j] == atom->tag[verlet_list_union[n]]) {
-        bflag = 1;
-        break;
-      }
-    }
-    if (!bflag) {
-      if (atom->tag[j] == atom->tag[atom1])
-        bond_extremes_pos[bond][0] = counter;
-      verlet_list_union[counter++] = j;
-    }
-  }
+  //+1 is needed in order to include atom1 too, which is obviously not 
+  //contained in its Verlet list
+  int total_size = list->numneigh[atom1] + 1;
 
   //Verlet list contains bonded atoms too
-  //array of derivatives for direct Efield * bond unit vector is allocated
+  //array of derivatives for direct Efield * bond unit vector is allocated 
   //with first dimension that is number of atoms in Verlet list of bond
-  memory->create(dEr_vals[bond], counter, 3, "fresp:dEr_vals comp");
-  memory->create(distances[bond], counter, 2, "fresp:distances comp");
-  dEr_indexes[bond] = (tagint**) memory->smalloc((counter + 1) *
+  memory->create(dEr_vals[bond], total_size, 3, "fresp:dEr_vals comp");
+  memory->create(distances[bond], total_size, 2, "fresp:distances comp");
+  dEr_indexes[bond] = (tagint**) memory->smalloc((total_size + 1) * 
     sizeof(tagint*), "fresp:dEr_indexes comp");
   dEr_indexes[bond][0] = (tagint*) calloc(3, sizeof(tagint));
-  for (i = 1; i <= counter; i++) dEr_indexes[bond][i] = (tagint*)
-    calloc(2, sizeof(tagint));
+  for (i = 1; i <= total_size; i++) 
+    dEr_indexes[bond][i] = (tagint*) calloc(2, sizeof(tagint));
 
   //dEr_indexes[bond][0][0] counts the number of atoms in bond Verlet list
-  dEr_indexes[bond][0][0] = (tagint)counter;
+  dEr_indexes[bond][0][0] = (tagint)total_size;
   //dEr_indexes[bond][0][1] is atom1 (as neighbor->bondlist[bond][0])
   dEr_indexes[bond][0][1] = (tagint)atom1;
   //dEr_indexes[bond][0][2] is atom2 (as neighbor->bondlist[bond][2])
   dEr_indexes[bond][0][2] = (tagint)atom2;
 
-  //verlet_list_union elements are copied into dEr_indexes in order to use the
-  //latter in the cycle of q_update_Efield
-  for (i = 1; i <= counter; i++) dEr_indexes[bond][i][0] =
-    verlet_list_union[i - 1];
+  //atoms from occasional Verlet list of atom1 are copied into dEr_indexes 
+  //in order to use the latter in the cycle of q_update_Efield
+  for (i = 1; i < total_size; i++) {
+    dEr_indexes[bond][i][0] = list->firstneigh[atom1][i - 1] & NEIGHMASK;
+    if (atom->tag[dEr_indexes[bond][i][0]] == atom->tag[atom2]) 
+      bond_extremes_pos[bond][1] = i - 1;
+  }
+  dEr_indexes[bond][total_size][0] = atom1;
+  bond_extremes_pos[bond][0] = total_size - 1;
 }
 
 /* ---------------------------------------------------------------------- 
