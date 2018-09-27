@@ -6,6 +6,7 @@
 
 :line
 
+fix fresp command :h3
 fix fresp/ewald command :h3
 fix fresp/dsf command :h3
 
@@ -15,15 +16,15 @@ fix ID group-ID style Nevery cutoff3 alpha filename1 filename2 keyword ... :pre
 
 ID, group-ID are documented in "fix"_fix.html command :ulb,l
 style = {fresp/ewald} or {fresp/dsf} :l
-Nevery = perform charge update every this many steps :l
+Nevery = perform charge update every this many steps (currently Nevery always equal 1) :l
 cutoff3 = cutoff for fictitious electric field calculation (distance unit) :l
 filename1 = name of the file containing the mapping between global atomic indexes and F-RESP types :l
 filename2 = name of the file containing F-RESP parameters used for charge update :l
-alpha = parameter used by Fennell's potential (fresp/dsf only) :l
+alpha = parameter used by DSF potential (fresp/dsf only) :l
 
 zero or more keyword/value pairs may be appended :l
 keyword = {g_ewald} or {kmax} or {damp} :l
-  {g_ewald} value =  same as in "kspace_modify"_kspace_modify.html, gewald used by Ewald summation for fictitious electric field calculation (fresp(ewald only)
+  {g_ewald} value =  same as in "kspace_modify"_kspace_modify.html, gewald used by Ewald summation for fictitious electric field calculation (fresp/ewald only)
   {kmax} value value value = same as in "kspace_modify"_kspace_modify.html, kmax used by Ewald summation for fictitious electric field calculation (fresp/ewald only)
   {damp} type cutoff1 cutoff2 = type can be "sin" or "exp" :pre
 
@@ -32,17 +33,17 @@ keyword = {g_ewald} or {kmax} or {damp} :l
 [Examples:]
 
 fix 1 all fresp/ewald 1 8 fresp_types.dat polarparm.dat damp sin 0.3 2.0
-fix 1 all fresp/dsf 1 12 0.1 fresp_types.dat polarparm.dat damp exp 0.3 2.0
+fix 1 all fresp/dsf 1 12 0.1 fresp_types.dat polarparm.dat damp exp 0.3 2.0 :pre
 
 [Description:]
 
-Permits to perform a fluctuating charges polarization using F-RESP 
-technique_#Cappelluti1 developed in the group of Prof. L. Guidoni at L'Aquila 
+Permits to perform a fluctuating charges MD simulation using F-RESP 
+technique developed in the group of Prof. L. Guidoni at L'Aquila 
 University. In this very simple model, atomic charges depend on the 
 electric fields exerted along the bonds of the molecule they belong to 
-by the expression:
+following the expression:
 
-:c,image(Eqs/fix_fresp1.jpg)
+:c,image(Eqs/fix_fresp.jpg)
 
 Electric field is not, however, the electric field exerted by the 
 charges the system contains at the current timestep because this 
@@ -52,28 +53,30 @@ electric field, created using the positions of the system in the
 current timestep but fixed "generating" charges, that are specified 
 as parameters.
 
-An article describing this method is about to be 
+An "article"_#Cappelluti1 describing this method is about to be 
 submitted.
 
-These fixes can be used only with "pair style"_pair_style.html 
-"pair_lj_cut_coul_long"_pair_lj_cut_coul_long.html and "full atom style"_atom_style.html.
+These fixes can be used only with  
+"pair_lj_cut_coul_long"_pair_lj.html pair style
+and "full atom style"_atom_style.html.
 
 F-RESP method requires a few parameters that have to be provided in two
-files specified by {filename1} and {filename2}. {filename1} has the 
-following format
+files specified by {filename1} and {filename2}.
+
+{filename1} has the following format
 
 #natypes
 Nfresptypes
 #atypes
 1 t1
 ...
-Natoms tn
+Natoms tn :pre
 
 {Nfresptypes} = number of F-RESP types
 {t1} = F-RESP type of the first atom
-{tn} = F-RESP type of the Natoms-th atom
+{tn} = F-RESP type of the Natoms-th atom :ul
 
-Pay attention that F-RESP types start from 0.
+F-RESP types start from 0.
 
 {filename2} has the following format
 
@@ -90,6 +93,8 @@ i j k l
 ...
 #k_bond
 i j k m
+... :pre
+
 
 {q0_0} = q0 charge of the first (0) F-RESP type
 {q0_n} = q0 charge of the Nfresptypes-th (Nfresptype - 1) F-RESP type
@@ -97,28 +102,23 @@ i j k m
 {qgen_n} = qgen charge of the Nfresptype-th (Nfresptype - 1) F-RESP type
 {i} = F-RESP type of one extreme of the bond
 {j} = F-RESP type of the other extreme of the bond
-{k} = F-RESP type of the atom whose charge is influenced by the previous 
-defined bond (only if contained in the same molecule)
-{l} = value of the coefficient connecting fictitious electric field projection 
-along bond and charge variation
-{m} = value of the coefficient connecting stretching of the bond from its 
-natural value and charge variation
+{k} = F-RESP type of the atom whose charge is influenced by the previous defined bond (only if contained in the same molecule)
+{l} = value of the coefficient connecting fictitious electric field projection along bond and charge variation
+{m} = value of the coefficient connecting stretching of the bond from its natural value and charge variation :ul
 
 As it is clear from the previous lines, charges of atoms with F-RESP type {k} 
-will depend on all bonds between atoms with F-RESP types {i} and {j}. 
-Following from this, equivalence in actual F-RESP implementation is more strict 
+will depend on all bonds between atoms with F-RESP types {i} and {j} contained 
+in the same molecule. 
+Following from this, equivalence in current F-RESP implementation is more strict 
 than classical chemical equivalence and bonds that are chemically equivalent 
 could not have the same F-RESP types for their extremes if the charge variation 
 effects they will produce are not wanted to be the same.
 
 The {fresp/ewald} style calculates the fictitious electric field over 
-bonds by using Ewald summation technique_#Ewald1. If {g_ewald} keyword is not 
-specified, {g_ewald} of the main electrostatic calculation is assumed. 
-If {kmax} keyword is not specified, it is estimated as a function of 
-gewald, main accuracy and box dimensions as in main Ewald calculation.
+bonds by using "(Ewald)"_#Ewald1 summation technique.
 
 The {fresp/dsf} style calculates the fictitious electric field over 
-bonds by using DSF technique_#Fennell1.
+bonds by using DSF technique by "(Fennell and Gezelter)"_#Fennell3.
 
 [Restart, fix_modify, output, run start/stop, minimize info:]
 
@@ -136,17 +136,21 @@ package"_Build_package.html doc page for more info.
 
 [Related commands:]
 
-[Default:] none
+[Default:]
+
+If not specified, {gewald} of the main electrostatic calculation is assumed.
+If not specified, {kmax} is estimated as a function of gewald, main accuracy 
+and box dimensions as in main Ewald calculation.
 
 :line
 
-:link(Cappellut1i)
-[(F-RESP)] F. Cappelluti, D. Ottaviani, D. Di Girolamo, A. Di Luca, 
+:link(Cappelluti1)
+[(Cappelluti)] F. Cappelluti, D. Ottaviani, D. Di Girolamo, A. Di Luca, 
 and L. Guidoni, in preparation
 
-:link(Fennell1)
-[(Fennell and Gezelter)] C. J. Fennell, and J. D. Gezelter, 
-J Physical Chemistry, 124:23, 234104 (2006)
+:link(Fennell3)
+[(Fennell and Gezelter)] Fennell C. J. and Gezelter J. D., Jour. 
+Chem. Phys., 124.23, 234104, (2006)
 
 :link(Ewald1)
 [(Ewald)] P. P. Ewald, Annalen der physik, 369.3, 253-287 (1921)

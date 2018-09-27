@@ -76,6 +76,7 @@ as contained in the file name.
 "USER-DRUDE"_#PKG-USER-DRUDE,
 "USER-EFF"_#PKG-USER-EFF,
 "USER-FEP"_#PKG-USER-FEP,
+"USER-FRESP"_#PKG-USER-FRESP,
 "USER-H5MD"_#PKG-USER-H5MD,
 "USER-INTEL"_#PKG-USER-INTEL,
 "USER-LB"_#PKG-USER-LB,
@@ -1342,6 +1343,25 @@ src/USER-FEP/README
 examples/USER/fep
 tools/fep/README
 tools/fep :ul
+
+:line
+
+USER-FRESP package :link(PKG-USER-FRESP),h4
+
+[Contents:]
+
+FRESP stands for Fluctuating-ReStrained Electrostatic Potential. 
+This package provides methods for performing fluctuating charges 
+simulations by using a "fix_fresp"_fix_fresp.html command.
+
+[Author:] Francesco Cappelluti (L'Aquila University)
+
+[Supporting info:]
+
+src/USER-FRESP: filenames -> commands
+src/USER-FRESP/README
+"fix fresp"_fix_fresp.html
+examples/USER/fresp :ul
 
 :line
 

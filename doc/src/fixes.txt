@@ -50,6 +50,7 @@ Fixes :h1
    fix_filter_corotate
    fix_flow_gauss
    fix_freeze
+   fix_fresp
    fix_gcmc
    fix_gld
    fix_gle
