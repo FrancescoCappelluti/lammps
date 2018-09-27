@@ -58,8 +58,8 @@ enum damp {NONE, EXP, SIN} dampflg;
 FixFRespDsf::FixFRespDsf(LAMMPS *lmp, int narg, char **arg) :
   FixFResp(lmp, narg, arg)
 {
-  thermo_virial = 1; //? Enables virial contribution
-  qsqsum = 1.0; //CORREGGERE
+  thermo_virial = 1; //Enables virial contribution
+  qsqsum = 1.0; //Declared here because not accessible from force->kspace
   dampflag = NONE;
 
   if (narg < 8 || narg > 13) error->all(FLERR,"Illegal fix fresp command");
@@ -84,22 +84,22 @@ FixFRespDsf::FixFRespDsf(LAMMPS *lmp, int narg, char **arg) :
     }
   }
 
-  // check for sane arguments
+  //check for sane arguments
   if ((nevery <= 0) || (cutoff1 < 0.0 || cutoff2 < 0.0 || cutoff3 <= 0.0))
     error->all(FLERR,"Illegal fix fresp command");
 
   nmax = 0;
 
-  // read FRESP types file
+  //read FRESP types file
   read_file_types(arg[6]);
 
-  // create an array where q0 is associated with atom global indexes
+  //create an array where q0 is associated with atom global indexes
   memory->create(q0, natypes, "fresp:q0");
   
-  // create an array where qgen is associated with atom global indexes
+  //create an array where qgen is associated with atom global indexes
   memory->create(qgen, natypes, "fresp:qgen");
 
-  // read FRESP parameters file
+  //read FRESP parameters file
   read_file(arg[7]);
 }
 
@@ -114,7 +114,8 @@ FixFRespDsf::~FixFRespDsf()
 int FixFRespDsf::pack_reverse_comm(int n, int first, double *buf)
 {
   int i, m;
-  if (pack_flag == 1) for(m = 0, i = first; m < n; m++, i++) buf[m] = deltaq[i];
+  if (pack_flag == 1) for (m = 0, i = first; m < n; m++, i++)
+    buf[m] = deltaq[i];
   else if (pack_flag == 3) for (m = 0, i = first; m < n; m++, i++)
     buf[m] = erfc_erf_arr[i];
   return m;
@@ -181,6 +182,7 @@ void FixFRespDsf::q_update_Efield_bond()
 
     //This check is here because, if false, bondv has already been calculated
     //and can be used for charge variation due to bond stretching
+    //qsqsum is that declared in constructor, need to correct
     if (Efieldflag && qsqsum > 0.0) {
 
       bondvinv = 1.0 / bondvl;
@@ -199,8 +201,7 @@ void FixFRespDsf::q_update_Efield_bond()
       atom1_pos = bond_extremes_pos[bond][0];
       atom2_pos = bond_extremes_pos[bond][1];
 
-      //This cycle over all the atoms is absolutely needed, neglecting it led
-      //to three days spent debugging.
+      //This cycle over all the atoms is absolutely needed
       for (i = 0; i < dEr_indexes[bond][0][0]; i++) dEr_vals[bond][i][0] =
         dEr_vals[bond][i][1] = dEr_vals[bond][i][2] = 0.0;
 
@@ -658,8 +659,8 @@ double FixFRespDsf::memory_usage()
   bytes += 2 * natypes * sizeof(double); //q0 and qgen
   bytes += 2 * nmax * sizeof(double); //deltaq and erfc_erf_arr
   //dEr_vals, dEr_indexes and distances
-  for (bond = 0; bond < nbond_old; bond ++
-    bytes += dEr_indexes[bond][0][0] * (2 * (sizeof(tagint) + sizeof(bigint) +
+  for (bond = 0; bond < nbond_old; bond ++)
+    bytes += dEr_indexes[bond][0][0] * (2 * (sizeof(tagint) + sizeof(bigint) + \
     3 * sizeof(double))) + 3 * sizeof(bigint);
   bytes += nmax * sizeof(short); //already_cycled
   return bytes;

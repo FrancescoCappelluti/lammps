@@ -13,7 +13,7 @@
 
 /* ----------------------------------------------------------------------
    Contributing author: Francesco Cappelluti
-    (francesco.cappelluti@graduate.univaq.it)
+     (francesco.cappelluti@graduate.univaq.it)
 ------------------------------------------------------------------------- */
 
 #ifndef LMP_FIX_FRESP_H
@@ -28,8 +28,8 @@ class FixFResp : public Fix {
   FixFResp(class LAMMPS *, int, char **);
   virtual ~FixFResp() = 0;
   int setmask();
-  //charges are updated in the new geometry and forces (in real space) due
-  //to charge variation are added
+  //charges are updated in the new geometry and Efield projections derivatives 
+  //are calculated
   virtual void pre_force(int) = 0;
   //charges are set according to starting geometry
   virtual void setup_pre_force(int) = 0;
@@ -85,7 +85,7 @@ class FixFResp : public Fix {
   void q_update_dihedral();
   void q_update_improper();
   virtual void q_update_Efield_bond() = 0;
-  class NeighList *list; //added as in fix_qeq in order to use Verlet lists
+  class NeighList *list;
   int nbond_old;
   //index 1 is bond index in bondlist, index 2 is atom index in Verlet list
   //union for middle bond point and index 3 is the component of
@@ -99,8 +99,7 @@ class FixFResp : public Fix {
   //union for middle bond point
   tagint ***dEr_indexes;
   int **bond_extremes_pos;
-  //array where sum of erfcs and erfs between atom and each other in its
-  //Verlet list is stored 
+  //array where real space electrostatic potential per-atom is stored
   double *erfc_erf_arr;
   double q2, qsum, qsqsum, scale, triclinic, accuracy, g_ewald;
   double unitk[3]; 

@@ -174,7 +174,6 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
 
   pack_flag = 0;
 
-  //create deltaq and deltaf arrays with atom->natoms length
   memory->create(deltaq, atom->nmax, "fresp:deltaq");
   memory->create(erfc_erf_arr, atom->nmax, "fresp:erfc_erf_arr");
   memory->create(already_cycled, atom->nmax, "fresp:already_cycled");
@@ -204,7 +203,7 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
   str[3] = str3;
   modify->add_compute(4, str);
   free(str);
-  //atom->add_callback(0);
+  //atom->add_callback(0); ???
   
   if (force->pair->ncoultablebits > 0) {
     force->pair->ncoultablebits = 0;
@@ -219,7 +218,6 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
 
 FixFResp::~FixFResp() {
   int i, j, end;
-  // unregister callbacks to this fix from Atom class
   //atom->delete_callback(id,0); //???
 
   memory->destroy(q0);
@@ -362,7 +360,7 @@ void FixFResp::q_update_angle()
     da = a - a0;
 
     //A cycle over all the atoms in the same molecule of the angle is done
-    //  in order to correct their charges according to k_angle coefficient
+    //in order to correct their charges according to k_angle coefficient
     for (m = 1; m <= mol_map[molecule - 1][0]; m++) { 
       global_center = mol_map[molecule - 1][m] - 1;
       atom1_t = types[global_atom1];
@@ -372,7 +370,7 @@ void FixFResp::q_update_angle()
       k = k_angle[atom1_t][atom2_t][atom3_t][center_t];
       
       //Charge variation are put in deltaq instead of atom->q in order
-      //  to permit their communication to other processes
+      //to permit their communication to other processes
       deltaq[atom->map((int)global_center + 1)] += k * da;
     }
   }
@@ -410,22 +408,22 @@ void FixFResp::q_update_dihedral()
     vb1x = x[atom1][0] - x[atom2][0];
     vb1y = x[atom1][1] - x[atom2][1];
     vb1z = x[atom1][2] - x[atom2][2];
-    domain->minimum_image(vb1x,vb1y,vb1z); //???
+    domain->minimum_image(vb1x,vb1y,vb1z);
 
     vb2x = x[atom3][0] - x[atom2][0];
     vb2y = x[atom3][1] - x[atom2][1];
     vb2z = x[atom3][2] - x[atom2][2];
-    domain->minimum_image(vb2x,vb2y,vb2z); //???
+    domain->minimum_image(vb2x,vb2y,vb2z);
 
     vb2xm = -vb2x;
     vb2ym = -vb2y;
     vb2zm = -vb2z;
-    domain->minimum_image(vb2xm,vb2ym,vb2zm); //???
+    domain->minimum_image(vb2xm,vb2ym,vb2zm);
 
     vb3x = x[atom4][0] - x[atom3][0];
     vb3y = x[atom4][1] - x[atom3][1];
     vb3z = x[atom4][2] - x[atom3][2];
-    domain->minimum_image(vb3x,vb3y,vb3z); //???
+    domain->minimum_image(vb3x,vb3y,vb3z);
 
     ax = vb1y*vb2zm - vb1z*vb2ym;
     ay = vb1z*vb2xm - vb1x*vb2zm;
@@ -502,17 +500,17 @@ void FixFResp::q_update_improper()
     vb1x = x[atom1][0] - x[atom2][0];
     vb1y = x[atom1][1] - x[atom2][1];
     vb1z = x[atom1][2] - x[atom2][2];
-    domain->minimum_image(vb1x,vb1y,vb1z); //???
+    domain->minimum_image(vb1x,vb1y,vb1z);
 
     vb2x = x[atom3][0] - x[atom2][0];
     vb2y = x[atom3][1] - x[atom2][1];
     vb2z = x[atom3][2] - x[atom2][2];
-    domain->minimum_image(vb2x,vb2y,vb2z); //???
+    domain->minimum_image(vb2x,vb2y,vb2z);
 
     vb3x = x[atom4][0] - x[atom3][0];
     vb3y = x[atom4][1] - x[atom3][1];
     vb3z = x[atom4][2] - x[atom3][2];
-    domain->minimum_image(vb3x,vb3y,vb3z); //???
+    domain->minimum_image(vb3x,vb3y,vb3z);
 
     ss1 = 1.0 / (vb1x*vb1x + vb1y*vb1y + vb1z*vb1z);
     ss2 = 1.0 / (vb2x*vb2x + vb2y*vb2y + vb2z*vb2z);

@@ -13,7 +13,7 @@
 
 /* ----------------------------------------------------------------------
    Contributing author: Francesco Cappelluti
-    (francesco.cappelluti@graduate.univaq.it)
+     (francesco.cappelluti@graduate.univaq.it)
 ------------------------------------------------------------------------- */
 
 #include <math.h>
@@ -88,20 +88,20 @@ FixFRespEwald::FixFRespEwald(LAMMPS *lmp, int narg, char **arg) :
     }
   }
 
-  // check for sane arguments
+  //check for sane arguments
   if ((nevery <= 0) || (cutoff1 < 0.0 || cutoff2 < 0.0 || cutoff3 <= 0.0))
     error->all(FLERR,"Illegal fix fresp command");
 
-  // read FRESP types file
+  //read FRESP types file
   read_file_types(arg[5]);
 
-  // create an array where q0 is associated with atom global indexes
+  //create an array where q0 is associated with atom global indexes
   memory->create(q0, natypes, "fresp:q0");
   
-  // create an array where qgen is associated with atom global indexes
+  //create an array where qgen is associated with atom global indexes
   memory->create(qgen, natypes, "fresp:qgen");
 
-  // read FRESP parameters file
+  //read FRESP parameters file
   read_file(arg[6]);
 
 }
@@ -146,8 +146,8 @@ void FixFRespEwald::ewald_qsum_qsq()
 
   q2 = qsqsum * force->qqrd2e;
 
-  // not yet sure of the correction needed for non-neutral systems
-  // so issue warning or error
+  //not yet sure of the correction needed for non-neutral systems
+  //so issue warning or error
 
   if (fabs(qsum) > EWALD_SMALL) {
     char str[128];
@@ -1028,8 +1028,8 @@ void FixFRespEwald::ewald_setup()
   double yprd = domain->yprd;
   double zprd = domain->zprd;
 
-  // adjustment of z dimension for 2d slab Ewald
-  // 3d Ewald just uses zprd since slab_volfactor = 1.0
+  //adjustment of z dimension for 2d slab Ewald
+  //3d Ewald just uses zprd since slab_volfactor = 1.0
 
   double zprd_slab = zprd * force->kspace->slab_volfactor;
   volume = xprd * yprd * zprd_slab;
@@ -1042,8 +1042,8 @@ void FixFRespEwald::ewald_setup()
   
   if (kewaldflag == 1) {
 
-  // determine kmax
-  // function of current box size, accuracy, G_ewald (short-range cutoff)
+  //determine kmax
+  //function of current box size, accuracy, G_ewald (short-range cutoff)
 
     bigint natoms = atom->natoms;
     double err;
@@ -1119,7 +1119,7 @@ void FixFRespEwald::ewald_setup()
 
   gsqmx *= 1.00001;
 
-  // if size has grown, reallocate k-dependent and nlocal-dependent arrays
+  //if size has grown, reallocate k-dependent and nlocal-dependent arrays
 
   if (kmax > kmax_old) {
     ewald_deallocate();
@@ -1139,7 +1139,7 @@ void FixFRespEwald::ewald_setup()
     kmax_created = kmax;
   }
 
-  // pre-compute Ewald coefficients
+  //pre-compute Ewald coefficients
 
   if (triclinic == 0)
     ewald_coeffs();
@@ -1165,14 +1165,14 @@ void FixFRespEwald::ewald_setup()
 
 void FixFRespEwald::ewald_structure_factor()
 {
-  // update qsum and qsqsum at each step
+  //update qsum and qsqsum at each step
   ewald_qsum_qsq();
 
   if (atom->natoms != natoms_original) {
     natoms_original = atom->natoms;
   }
 
-  // extend size of per-atom arrays if necessary
+  //extend size of per-atom arrays if necessary
   if (atom->nmax > nmax) {
     memory->destroy(ek);
     memory->destroy3d_offset(cs,-kmax_created);
@@ -1188,8 +1188,8 @@ void FixFRespEwald::ewald_structure_factor()
     kmax_created = kmax;
   }
 
-  // partial structure factors on each processor
-  // total structure factor by summing over procs
+  //partial structure factors on each processor
+  //total structure factor by summing over procs
 
   if (triclinic == 0) ewald_eik_dot_r_qgen();
   else ewald_eik_dot_r_triclinic_qgen();
@@ -1291,8 +1291,7 @@ void FixFRespEwald::q_update_Efield_bond()
       atom1_pos = bond_extremes_pos[bond][0];
       atom2_pos = bond_extremes_pos[bond][1];
 
-      //This cycle over all the atoms is absolutely needed, neglecting it
-      //costed me three days spent debugging.
+      //This cycle over all the atoms is absolutely needed
       for (i = 0; i < dEr_indexes[bond][0][0]; i++) dEr_vals[bond][i][0] =
         dEr_vals[bond][i][1] = dEr_vals[bond][i][2] = 0.0;
 
@@ -1383,7 +1382,6 @@ void FixFRespEwald::q_update_Efield_bond()
           dEr_par = -qgen[types[global_center - 1]] * rvminv * bondvinv *
             (expm2 * TWO_OVER_SQPI * g_ewald * (3.0 * rvminvsq + 2.0 *
             g_ewald * g_ewald) + 3.0 * erfc * rvminvcu);
-          if (dampflag == 1 && rvml < cutoff1) continue;
           if (rvml < cutoff2) {
             damping = Efield_damping(dampflag, rvml, cutoff1, cutoff2);
             //damping function derivative is initialized as rvmvs
@@ -1393,17 +1391,17 @@ void FixFRespEwald::q_update_Efield_bond()
               cblas_dscal(3, ((rvml - cutoff2) / (cutoff1 * cutoff1)) *
               bondrvmprod * bondvinv * damping * E_Rpar, ddamping, 1);
             else if (dampflag == 1) 
-              cblas_dscal(3, MathConst::MY_PI / (cutoff2 - cutoff1) *
-              sqrt(damping) * (1.0 - 2.0 * damping) * rvminv * E_Rpar, 
-              ddamping, 1);
+              cblas_dscal(3, -MathConst::MY_PI / (cutoff2 - cutoff1) *
+              sqrt(damping * (1.0 - damping)) * bondrvmprod * bondvinv *
+              E_Rpar, ddamping, 1);
             #else
             MathExtra::copy3(rvmvs, ddamping);
             if (dampflag == 0)
               MathExtra::scale3(((rvml - cutoff2) / (cutoff1 * cutoff1)) *
               bondrvmprod * bondvinv * E_Rpar, ddamping);
             else if (dampflag == 1)
-              MathExtra::scale3(MathConst::MY_PI / (cutoff2 - cutoff1) *
-              sqrt(damping) * (1.0 - 2.0 * damping) * rvminv *
+              MathExtra::scale3(-MathConst::MY_PI / (cutoff2 - cutoff1) *
+              sqrt(damping * (1.0 - damping)) * bondrvmprod * bondvinv *
               E_Rpar, ddamping);
             #endif
             //E_Rpar and dEr_par are scaled
@@ -1565,9 +1563,6 @@ void FixFRespEwald::q_update_Efield_bond()
         dEr_vals[bond][atom2_pos][2] += first_half[2] + second_half[2];
       }
 
-      //double t4 = MPI_Wtime();
-      //fprintf(stderr, "2 %lf\n", t4 - t3);
-
     //Calculate component of E along bond
     Eparallel = MathExtra::dot3(E, bondvs);
 
@@ -1618,7 +1613,6 @@ void FixFRespEwald::setup_pre_force(int vflag)
   //If nmax has changed, deltaq and erfc_erf_arr are resized.
   if (atom->nmax != nmax) {
     memory->grow(deltaq, atom->nmax, "fresp:deltaq");
-    //memory->grow(deltaf, atom->nmax, 3, "fresp:deltaf");
     memory->grow(erfc_erf_arr, atom->nmax, "fresp:erfc_erf_arr");
     memory->grow(already_cycled, atom->nmax, "fresp:already_cycled");
   }
@@ -1747,7 +1741,6 @@ void FixFRespEwald::pre_force(int vflag)
 
   if (atom->nmax != nmax) {
     memory->grow(deltaq, atom->nmax, "fresp:deltaq");
-    //memory->grow(deltaf, atom->nmax, 3, "fresp:deltaf");
     memory->grow(erfc_erf_arr, atom->nmax, "fresp:erfc_erf_arr");
     memory->grow(already_cycled, atom->nmax, "fresp:already_cycled");
   }
@@ -1758,17 +1751,13 @@ void FixFRespEwald::pre_force(int vflag)
 
   //deltaq ,rfc_erf_arr and already_cycled arrays are cleared
   for (i = 0; i < atom->nmax; i++) {
-    //deltaf[i][0] = deltaf[i][1] = deltaf[i][2] = 0.0;
     deltaq[i] = erfc_erf_arr[i] = 0.0;
     already_cycled[i] = (short)0;
   }
 
   ewald_structure_factor();
 
-  //double t1 = MPI_Wtime();
   if (Efieldflag || bondflag) q_update_Efield_bond();
-  //double t2 = MPI_Wtime();
-  //fprintf(stderr, "%lf\n", t2 - t1);
   if (angleflag) q_update_angle();
   if (dihedralflag) q_update_dihedral();
   if (improperflag) q_update_improper();
@@ -1808,8 +1797,11 @@ void FixFRespEwald::pre_reverse(int eflag, int vflag)
   static const double prefac =  2.0 * force->kspace->g_ewald /
     MathConst::MY_PIS;
   double v[6], unwrap[3], freal[3], premul[3], gen_q, partial[3];
+  double kb, kb_tot_pot, bondv[3], bondvinv;
+  int atom1, atom2, atom1_pos, atom2_pos;
 
-  // energy and virial setup
+  //energy and virial setup
+  //Virial calculation still not correctly implemented!!
   if (vflag) v_setup(vflag);
   else evflag = 0;
 
@@ -1821,14 +1813,26 @@ void FixFRespEwald::pre_reverse(int eflag, int vflag)
   for (k = 0; k < kcount; k++) appo3[k][0] = appo3[k][1] = appo3[k][2] =
     appo3[k][3] = appo3[k][4] = appo3[k][5] = 0.0;
 
-  //double t1 = MPI_Wtime();
-
   for (bond = 0; bond < nbond_old; bond++) {
     molecule = atom->molecule[dEr_indexes[bond][0][1]];
     global_atom1 = atom->tag[dEr_indexes[bond][0][1]];
     global_atom2 = atom->tag[dEr_indexes[bond][0][2]];
     atom1_t = types[global_atom1 - 1];
     atom2_t = types[global_atom2 - 1];
+    if (bondflag) {
+      atom1 = dEr_indexes[bond][0][1];
+      atom2 = dEr_indexes[bond][0][2];
+      atom1_pos = bond_extremes_pos[bond][0];
+      atom2_pos = bond_extremes_pos[bond][1];
+      bondv[0] = atom->x[atom1][0] - atom->x[atom2][0];
+      bondv[1] = atom->x[atom1][1] - atom->x[atom2][1];
+      bondv[2] = atom->x[atom1][2] - atom->x[atom2][2];
+      #ifdef __INTEL_MKL__
+      bondvinv = 1.0 / cblas_dnrm2(3, bondv, 1);
+      #else
+      bondvinv = 1.0 / MathExtra::len3(bondv);
+      #endif
+    }
     for (i = 1; i <= mol_map[molecule - 1][0]; i++) {
       global_center = mol_map[molecule - 1][i];
       center = atom->map(global_center);
@@ -1837,23 +1841,35 @@ void FixFRespEwald::pre_reverse(int eflag, int vflag)
       //Multipication of qscale times erfc_erf_arr is done in build_erfc_erf_arr
       alpha_tot_pot = alpha * (erfc_erf_arr[center] + 2.0 *
         force->kspace->eatom[center] / atom->q[center]);
-      alpha_real_space_pot = alpha * (erfc_erf_arr[center] - prefac *
-        atom->q[center]);
+      //Virial calculation still not correctly implemented!!
+      //alpha_real_space_pot = alpha * (erfc_erf_arr[center] - 
+      //prefac * atom->q[center]);
       for (j = 0; j < dEr_indexes[bond][0][0]; j++) {
         if (dEr_indexes[bond][j + 1][1] == (tagint)-1) continue;
         der_atom = dEr_indexes[bond][j + 1][0];
         //position of der_atom is put in unwrap
-        domain->unmap(atom->x[der_atom], atom->image[der_atom], unwrap);
+        //Virial calculation still not correctly implemented!!
+        //domain->unmap(atom->x[der_atom], atom->image[der_atom], unwrap);
 
-        //atom->f[der_atom][0] += dEr_vals[bond][j][0] * alpha_tot_pot;
-        //atom->f[der_atom][1] += dEr_vals[bond][j][1] * alpha_tot_pot;
-        //atom->f[der_atom][2] += dEr_vals[bond][j][2] * alpha_tot_pot;
         //subtraction is because deltaf term is dU/dr and force is -dU/dr
         atom->f[der_atom][0] -= dEr_vals[bond][j][0] * alpha_tot_pot;
         atom->f[der_atom][1] -= dEr_vals[bond][j][1] * alpha_tot_pot;
         atom->f[der_atom][2] -= dEr_vals[bond][j][2] * alpha_tot_pot;
 
-        if (evflag) {
+        if (bondflag && (j == atom1_pos || j == atom2_pos)) {
+          kb = k_bond[atom1_t][atom2_t][center_t];
+          //Force contribution coming from bond stretching is reversed
+          //if atom2 is considered
+          if (j == atom2_pos) kb *= -1.0;
+          kb_tot_pot = kb * (erfc_erf_arr[center] + 2.0 *
+            force->kspace->eatom[center] / atom->q[center]);
+          atom->f[der_atom][0] -= bondv[0] * kb_tot_pot * bondvinv;
+          atom->f[der_atom][1] -= bondv[1] * kb_tot_pot * bondvinv;
+          atom->f[der_atom][2] -= bondv[2] * kb_tot_pot * bondvinv;
+        }
+
+        //Virial calculation still not correctly implemented!!
+        /*if (evflag) {
           freal[0] = dEr_vals[bond][j][0] * alpha_real_space_pot;
           freal[1] = dEr_vals[bond][j][1] * alpha_real_space_pot;
           freal[2] = dEr_vals[bond][j][2] * alpha_real_space_pot;
@@ -1865,7 +1881,7 @@ void FixFRespEwald::pre_reverse(int eflag, int vflag)
           v[4] = freal[0] * unwrap[2];
           v[5] = freal[1] * unwrap[2];
           v_tally(der_atom, v);
-        }
+        }*/
       }
       #ifdef __INTEL_MKL__
       mkl_domatadd('r', 'n', 'n', kcount, 6, alpha_tot_pot, &appo2[bond][0][0],
@@ -1902,15 +1918,9 @@ void FixFRespEwald::pre_reverse(int eflag, int vflag)
       Re_xi = cos(arg);
       Im_xi = sin(arg);
       #endif
-      //deltaf[i][0] += appo3[k][0] * qRe_xi + appo3[k][3] * qIm_xi;
-      //deltaf[i][1] += appo3[k][1] * qRe_xi + appo3[k][4] * qIm_xi;
-      //deltaf[i][2] += appo3[k][2] * qRe_xi + appo3[k][5] * qIm_xi;
       partial[0] += appo3[k][0] * Re_xi + appo3[k][3] * Im_xi;
       partial[1] += appo3[k][1] * Re_xi + appo3[k][4] * Im_xi;
       partial[2] += appo3[k][2] * Re_xi + appo3[k][5] * Im_xi;
-      //atom->f[i][0] += gen_q * (appo3[k][0] * Re_xi + appo3[k][3] * Im_xi);
-      //atom->f[i][1] += gen_q * (appo3[k][1] * Re_xi + appo3[k][4] * Im_xi);
-      //atom->f[i][2] += gen_q * (appo3[k][2] * Re_xi + appo3[k][5] * Im_xi);
     }
     atom->f[i][0] += gen_q * partial[0];
     atom->f[i][1] += gen_q * partial[1];
@@ -1942,7 +1952,7 @@ double FixFRespEwald::memory_usage()
   bytes += nbond_old * 6 * kcount * sizeof(double); //appo2
   //dEr_vals, dEr_indexes and distances
   for (bond = 0; bond < nbond_old; bond ++)
-    bytes += dEr_indexes[bond][0][0] * (2 * (sizeof(tagint) + sizeof(bigint) +
+    bytes += dEr_indexes[bond][0][0] * (2 * (sizeof(tagint) + sizeof(bigint) + \
     3 * sizeof(double))) + 3 * sizeof(bigint);
   bytes += atom->nmax * sizeof(short); //already_cycled
   #ifdef __INTEL_MKL__
@@ -1954,12 +1964,16 @@ double FixFRespEwald::memory_usage()
 
 /* ---------------------------------------------------------------------- */
 
-inline double FixFRespEwald::Efield_damping(int dampflag, double r, double
+inline double FixFRespEwald::Efield_damping(int dampflag, double r, double 
   cutoff1, double cutoff2)
 {
-  if (dampflag == 0) return MathSpecial::fm_exp(-0.5 * (r - cutoff2) 
+  if (dampflag == 0) return MathSpecial::fm_exp(-0.5 * (r - cutoff2) *
     (r - cutoff2) / (cutoff1 * cutoff1));
-  else if (dampflag == 1) return MathSpecial::powint(sin(0.5 *
-    MathConst::MY_PI * (r - cutoff1) / (cutoff2 - cutoff1)), 2);
+  else if (dampflag == 1) {
+    if (r > cutoff1)
+      return MathSpecial::powint(sin(0.5 *
+      MathConst::MY_PI * (r - cutoff1) / (cutoff2 - cutoff1)), 2);
+    else return 0.0;
+  }
 }
 

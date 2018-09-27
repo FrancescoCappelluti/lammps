@@ -13,7 +13,7 @@
 
 /* ----------------------------------------------------------------------
    Contributing author: Francesco Cappelluti
-    (francesco.cappelluti@graduate.univaq.it)
+     (francesco.cappelluti@graduate.univaq.it)
 ------------------------------------------------------------------------- */
 
 #ifdef FIX_CLASS

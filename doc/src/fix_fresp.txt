@@ -37,7 +37,7 @@ fix 1 all fresp/dsf 1 12 0.1 fresp_types.dat polarparm.dat damp exp 0.3 2.0
 [Description:]
 
 Permits to perform a fluctuating charges polarization using F-RESP 
-technique developed in the group of Prof. L. Guidoni at L'Aquila 
+technique_#Cappelluti1 developed in the group of Prof. L. Guidoni at L'Aquila 
 University. In this very simple model, atomic charges depend on the 
 electric fields exerted along the bonds of the molecule they belong to 
 by the expression:
@@ -56,8 +56,8 @@ An article describing this method is about to be
 submitted.
 
 These fixes can be used only with "pair style"_pair_style.html 
-"pair_lj_cut_coul_long"_pair_lj_cut_coul_long.html and with a main 
-cutoff that is slightly longer than F-RESP cutoff.
+"pair_lj_cut_coul_long"_pair_lj_cut_coul_long.html, "full atom style"_atom_style.html 
+and with a main cutoff that is slightly longer than F-RESP cutoff.
 
 F-RESP method requires a few parameters that have to be provided in two
 files specified by {filename1} and {filename2}. {filename1} has the 
@@ -113,7 +113,7 @@ could not have the same F-RESP types for their extremes if the charge variation
 effects they will produce are not wanted to be the same.
 
 The {fresp/ewald} style calculates the fictitious electric field over 
-bonds by using Ewald summation technique. If {g_ewald} keyword is not 
+bonds by using Ewald summation technique_#Ewald1. If {g_ewald} keyword is not 
 specified, {g_ewald} of the main electrostatic calculation is assumed. 
 If {kmax} keyword is not specified, it is estimated as a function of 
 gewald, main accuracy and box dimensions as in main Ewald calculation.
@@ -141,10 +141,13 @@ package"_Build_package.html doc page for more info.
 
 :line
 
-:link(Fennell1)
-[(Fennell and Gezelter)] C. J. Fennell, and J. D. Gezelter, 
-J Physical Chemistry, 124:23, 234104 (2006).
-
-:link(Cappelluti)
+:link(Cappellut1i)
 [(F-RESP)] F. Cappelluti, D. Ottaviani, D. Di Girolamo, A. Di Luca, 
 and L. Guidoni, in preparation
+
+:link(Fennell1)
+[(Fennell and Gezelter)] C. J. Fennell, and J. D. Gezelter, 
+J Physical Chemistry, 124:23, 234104 (2006)
+
+:link(Ewald1)
+[(Ewald)] P. P. Ewald, Annalen der physik, 369.3, 253-287 (1921)
