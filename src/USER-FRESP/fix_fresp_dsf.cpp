@@ -574,6 +574,8 @@ void FixFRespDsf::pre_reverse(int eflag, int vflag)
   double kb, kb_tot_pot, bondv[3], bondvinv;
   int atom1, atom2, atom1_pos, atom2_pos;
 
+  if (update->ntimestep % nevery) return;
+
   // energy and virial setup
   if (vflag) v_setup(vflag);
   else evflag = 0;

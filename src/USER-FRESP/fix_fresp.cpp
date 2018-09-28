@@ -81,8 +81,7 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
   //  error->all(FLERR,"Fix fresp can be used only with ewald kspace_style
   //    (for the moment)");
 
-  //nevery = force->inumeric(FLERR,arg[3]); nevery != 1 not yet implemented.
-  nevery = 1;
+  nevery = force->inumeric(FLERR,arg[3]);
   cutoff3 = force->numeric(FLERR,arg[4]);
 
   //give the maximum dimension of data communicated per atom

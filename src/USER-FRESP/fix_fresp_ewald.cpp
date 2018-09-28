@@ -1803,6 +1803,8 @@ void FixFRespEwald::pre_reverse(int eflag, int vflag)
   double kb, kb_tot_pot, bondv[3], bondvinv;
   int atom1, atom2, atom1_pos, atom2_pos;
 
+  if (update->ntimestep % nevery) return;
+
   //energy and virial setup
   //Virial calculation still not correctly implemented!!
   if (vflag) v_setup(vflag);
@@ -1967,8 +1969,8 @@ double FixFRespEwald::memory_usage()
 
 /* ---------------------------------------------------------------------- */
 
-inline double FixFRespEwald::Efield_damping(int dampflag, double r, double 
-  cutoff1, double cutoff2)
+inline double FixFRespEwald::Efield_damping(int dampflag, double r, 
+  double cutoff1, double cutoff2)
 {
   if (dampflag == 0) return MathSpecial::fm_exp(-0.5 * (r - cutoff2) *
     (r - cutoff2) / (cutoff1 * cutoff1));
