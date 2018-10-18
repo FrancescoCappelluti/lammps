@@ -20,7 +20,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <fenv.h> //Floating point exceptions
 #include <mkl.h> //Not mandatory
 #include "fix_fresp_ewald.h"
 #include "angle.h"
@@ -1202,8 +1201,7 @@ void FixFRespEwald::ewald_structure_factor()
 
 int FixFRespEwald::pack_reverse_comm(int n, int first, double *buf)
 {
-  int i, m, last;
-  last = first + n;
+  int i, m;
   if (pack_flag == 1) for(m = 0, i = first; m < n; m++, i++)
     buf[m] = deltaq[i];
   else if (pack_flag == 3) for (m = 0, i = first; m < n; m++, i++)
@@ -1215,7 +1213,7 @@ int FixFRespEwald::pack_reverse_comm(int n, int first, double *buf)
 
 void FixFRespEwald::unpack_reverse_comm(int n, int *list, double *buf)
 {
-  int m, j, i;
+  int m;
 
   if (pack_flag == 1) for(m = 0; m < n; m++) deltaq[list[m]] += buf[m];
   else if (pack_flag == 3) for (m = 0; m < n; m++)
@@ -1229,17 +1227,17 @@ void FixFRespEwald::unpack_reverse_comm(int n, int *list, double *buf)
 void FixFRespEwald::q_update_Efield_bond()
 {
   double xm[3], **x = atom->x, k, rvml, rvminv, rvminvsq, rvminvcu;
-  double rvm[3], rvmvs[3], r0, dr, bondvl, bondvinv, bondinvsq; 
+  double rvm[3], rvmvs[3], r0, dr, bondvl, bondvinv; 
   bigint atom1, atom2, center, global_center, global_atom1, global_atom2;
   bigint molecule;
   int atom1_t, atom2_t, center_t, i, bond, atom1_pos, atom2_pos, molflag;
   double bondv[3], bondvs[3], E[3], E_R[3], E_K[3], Eparallel, ra1[3], ra2[3];
   double grij, expm2, Im_prod, Re_prod, Im_xm, Re_xm, bondkprod, bondvskprod;
   double first_first_half[3], first_second_half[3], erfc, rvmlsq;
-  double cutoff3_sqr, arg, first_half[3], second_half[3], pref, appo2Re_pref;
+  double cutoff3_sqr, arg, first_half[3], second_half[3], appo2Re_pref;
   double appo2Im_pref, kvec[3], minus_square_grij;
   double dEr_par, E_Rpar, bondrvmprod, E_Rpar_red, bondvs_red[3], damping;
-  double damping_sqrt, ddamping[3], pref_first_half, pref_second_half;
+  double ddamping[3], pref_first_half, pref_second_half;
 
   cutoff3_sqr = cutoff3 * cutoff3;
 
@@ -1273,7 +1271,6 @@ void FixFRespEwald::q_update_Efield_bond()
       double E_R_perbond = 0.0, E_B_perbond = 0.0, E_K_perbond = 0.0;
 
       bondvinv = 1.0 / bondvl;
-      bondinvsq = bondvinv * bondvinv;
       #ifdef __INTEL_MKL__
       cblas_dcopy(3, x[atom1], 1, xm, 1);
       vdAdd(3, x[atom2], xm, xm);
@@ -1796,7 +1793,6 @@ void FixFRespEwald::pre_reverse(int eflag, int vflag)
   tagint der_atom, global_atom1, global_atom2, global_center, center;
   bigint molecule;
   double alpha, Re_xi, Im_xi, arg, alpha_tot_pot, alpha_real_space_pot;
-  const double qscale = force->qqrd2e * 1.0; //1.0 is scale
   static const double prefac =  2.0 * force->kspace->g_ewald /
     MathConst::MY_PIS;
   double v[6], unwrap[3], freal[3], premul[3], gen_q, partial[3];
@@ -1939,7 +1935,7 @@ void FixFRespEwald::pre_reverse(int eflag, int vflag)
 
 double FixFRespEwald::memory_usage()
 {
-  int i, bond;
+  int bond;
   double bytes = 0.0;
   bytes += atom->natoms * sizeof(int); //types
   bytes += nmolecules * (average_mol_size + 1) * sizeof(bigint); //mol_map

@@ -20,7 +20,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <fenv.h> //Floating point exceptions
 #include <mkl.h> //Not mandatory
 #include "fix_fresp_dsf.h"
 #include "angle.h"

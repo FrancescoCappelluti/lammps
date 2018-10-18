@@ -20,7 +20,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <fenv.h> //Floating point exceptions
 #include <mkl.h> //Not mandatory
 #include "fix_fresp.h"
 #include "angle.h"
@@ -60,7 +59,7 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
   sfacim_qgen(NULL), sfacrl_all_qgen(NULL), sfacim_all_qgen(NULL), cs(NULL),
   sn(NULL), cs_qgen(NULL), sn_qgen(NULL)
 {
-  int i, j, k, iarg;
+  int i, j, k;
   bigint *tmp;
 
   virial_flag = 1;
@@ -187,9 +186,6 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
   bondvskprod_vec = xmkprod_vec = Im_xm_vec = Re_xm_vec = tmp1 = tmp2 = NULL;
   appo2Re_pref_vec = appo2Im_pref_vec = Im_prod_vec = Re_prod_vec = NULL;
 
-  //Floating point exceptions
-  feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
-
   //Adding this compute here, it is not necessary to add it in input file.
   id_pe = "fresp_eatom";
   char str1[] = "all";
@@ -206,8 +202,12 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
   
   if (force->pair->ncoultablebits > 0) {
     force->pair->ncoultablebits = 0;
-    printf("In order to correctly use fix fresp, \
-      ncoultablebits is set to 0.\n");
+    if (comm->me == 0) {
+      if (screen) fprintf(screen, "In order to correctly use fix fresp, \
+      ncoultablebits is set to 0\n");
+      if (logfile) fprintf(logfile, "In order to correctly use fix fresp, \
+      ncoultablebits is set to 0\n");
+    }
   }  
 }
 
@@ -268,8 +268,14 @@ void FixFResp::init()
   if (mycutneigh > cutghost) {
     //ceil(mycutneigh) is the smallest integer equal or bigger to mycutneigh
     comm->cutghostuser = ceil(mycutneigh);
-    printf("cutghostuser set to %lf in order to correctly use fix fresp", 
-      ceil(mycutneigh));
+    if (comm->me == 0) {
+      if (screen)
+        fprintf(screen, "cutghostuser set to %lf in order to correctly \
+          use fix fresp", ceil(mycutneigh));
+      if (logfile)
+        fprintf(logfile, "cutghostuser set to %lf in order to correctly \
+          use fix fresp", ceil(mycutneigh));
+    }
   }
   int irequest = neighbor->request(this, instance_me);
   neighbor->requests[irequest]->half = 0;
@@ -589,7 +595,7 @@ void FixFResp::read_file(char *file)
     atom4_t, center_t;
   FILE *fp;
   char **words = new char*[params_per_line+1];
-  int n, nwords, eof;
+  int nwords, eof, i, j, k, l, m, n;
   char line[MAXLINE], *ptr;
 
   eof = 0;
@@ -629,6 +635,11 @@ void FixFResp::read_file(char *file)
         //whose charge is changed
         if (!k_bond) memory->create(k_bond, natypes, natypes, natypes,
           "fresp:k_bond");
+        for (i = 0; i < natypes; i++) {
+          for (j = 0; j < natypes; j++) {
+            for (k = 0; k < natypes; k++) k_bond[i][j][k] = 0.0;
+          }
+        }
         parseflag = 2;
         bondflag = true; 
       }
@@ -639,6 +650,13 @@ void FixFResp::read_file(char *file)
         //and the 4th is center whose charge is changed
         if (!k_angle) memory->create(k_angle, natypes, natypes, natypes,
           natypes, "fresp:k_angle");
+        for (i = 0; i < natypes; i++) {
+          for (j = 0; j < natypes; j++) {
+            for (k = 0; k < natypes; k++) {
+              for (l = 0; l < natypes; l++) k_angle[i][j][k][l] = 0.0;
+            }
+          }
+        }
         parseflag = 3;
         angleflag = true;
       }
@@ -649,6 +667,15 @@ void FixFResp::read_file(char *file)
         //the 4th is atom4 and the 5th is center whose charge is changed
         if (!k_dihedral) memory->create(k_dihedral, natypes, natypes,
           natypes, natypes, natypes, "fresp:k_dihedral");
+        for (i = 0; i < natypes; i++) {
+          for (j = 0; j < natypes; j++) {
+            for (k = 0; k < natypes; k++) {
+              for (l = 0; l < natypes; l++) {
+                for (m = 0; m < natypes; m++) k_dihedral[i][j][k][l][m] = 0.0;
+              }
+            }
+          }
+        }
         parseflag = 4;
         dihedralflag  = true;
       }
@@ -659,6 +686,15 @@ void FixFResp::read_file(char *file)
         //the 4th is atom4 and the 5th is center whose charge is changed
         if (!k_improper) memory->create(k_improper, natypes, natypes,
           natypes, natypes, natypes, "fresp:k_improper");
+        for (i = 0; i < natypes; i++) {
+          for (j = 0; j < natypes; j++) {
+            for (k = 0; k < natypes; k++) {
+              for (l = 0; l < natypes; l++) {
+                for (m = 0; m < natypes; m++) k_dihedral[i][j][k][l][m] = 0.0;
+              }
+            }
+          }
+        }
         parseflag = 5;
         improperflag = true;
       }
@@ -669,6 +705,11 @@ void FixFResp::read_file(char *file)
         //whose charge is changed
         if (!k_Efield) memory->create(k_Efield, natypes, natypes,
           natypes, "fresp:k_Efield");
+        for (i = 0; i < natypes; i++) {
+          for (j = 0; j < natypes; j++) {
+            for (k = 0; k < natypes; k++) k_Efield[i][j][k] = 0.0;
+          }
+        }
         parseflag = 6;
         Efieldflag =  true;
         
@@ -822,9 +863,7 @@ void FixFResp::read_file_types(char *file)
 
 void FixFResp::build_bond_Verlet_list(int bond, tagint atom1, tagint atom2)
 {
-  char bflag;
-  int i, n, atom1_counter, counter;
-  tagint j;
+  int i;
 
   //+1 is needed in order to include atom1 too, which is obviously not 
   //contained in its Verlet list
