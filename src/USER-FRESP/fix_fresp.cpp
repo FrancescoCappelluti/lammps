@@ -270,11 +270,11 @@ void FixFResp::init()
     comm->cutghostuser = ceil(mycutneigh);
     if (comm->me == 0) {
       if (screen)
-        fprintf(screen, "cutghostuser set to %lf in order to correctly \
-          use fix fresp", ceil(mycutneigh));
+        fprintf(screen, "cutghostuser set to %lf in order to correctly\
+ use fix fresp\n", ceil(mycutneigh));
       if (logfile)
-        fprintf(logfile, "cutghostuser set to %lf in order to correctly \
-          use fix fresp", ceil(mycutneigh));
+        fprintf(logfile, "cutghostuser set to %lf in order to correctly\
+ use fix fresp\n", ceil(mycutneigh));
     }
   }
   int irequest = neighbor->request(this, instance_me);
@@ -336,6 +336,29 @@ void FixFResp::unpack_forward_comm(int n, int first, double *buf)
     atom->q[i] = buf[m];
   else if (pack_flag == 3) for(m = 0, i = first; m < n; m++, i++)
     erfc_erf_arr[i] = buf[m];
+}
+
+/* ---------------------------------------------------------------------- */
+
+int FixFResp::pack_reverse_comm(int n, int first, double *buf)
+{
+  int i, m;
+  if (pack_flag == 1) for (m = 0, i = first; m < n; m++, i++)
+    buf[m] = deltaq[i];
+  else if (pack_flag == 3) for (m = 0, i = first; m < n; m++, i++)
+    buf[m] = erfc_erf_arr[i];
+  return m;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixFResp::unpack_reverse_comm(int n, int *list, double *buf)
+{
+  int m;
+
+  if (pack_flag == 1) for(m = 0; m < n; m++) deltaq[list[m]] += buf[m];
+  else if (pack_flag == 3) for (m = 0; m < n; m++)
+    erfc_erf_arr[list[m]] += buf[m];
 }
 
 /* ---------------------------------------------------------------------

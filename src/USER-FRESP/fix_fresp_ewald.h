@@ -38,8 +38,6 @@ class FixFRespEwald : public FixFResp {
   void pre_reverse(int, int);
   void post_neighbor();
   double memory_usage();
-  int pack_reverse_comm(int, int, double *);
-  void unpack_reverse_comm(int, int *, double *);
 
  protected:
   void q_update_Efield_bond();

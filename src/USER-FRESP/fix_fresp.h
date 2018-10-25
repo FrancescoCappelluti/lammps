@@ -44,8 +44,8 @@ class FixFResp : public Fix {
   virtual double memory_usage() = 0;
   int pack_forward_comm(int, int *, double *, int, int *);
   void unpack_forward_comm(int, int, double *);
-  virtual int pack_reverse_comm(int, int, double *) = 0;
-  virtual void unpack_reverse_comm(int, int *, double *) = 0;
+  int pack_reverse_comm(int, int, double *);
+  void unpack_reverse_comm(int, int *, double *);
 
  protected:
   //flags that tell if FRESP is active

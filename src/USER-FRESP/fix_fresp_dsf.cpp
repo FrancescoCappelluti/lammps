@@ -108,30 +108,7 @@ FixFRespDsf::~FixFRespDsf()
 {
 }
 
-/* ---------------------------------------------------------------------- */
-
-int FixFRespDsf::pack_reverse_comm(int n, int first, double *buf)
-{
-  int i, m;
-  if (pack_flag == 1) for (m = 0, i = first; m < n; m++, i++)
-    buf[m] = deltaq[i];
-  else if (pack_flag == 3) for (m = 0, i = first; m < n; m++, i++)
-    buf[m] = erfc_erf_arr[i];
-  return m;
-}
-
-/* ---------------------------------------------------------------------- */
-
-void FixFRespDsf::unpack_reverse_comm(int n, int *list, double *buf)
-{
-  int m;
-
-  if (pack_flag == 1) for(m = 0; m < n; m++) deltaq[list[m]] += buf[m];
-  else if (pack_flag == 3) for (m = 0; m < n; m++)
-    erfc_erf_arr[list[m]] += buf[m];
-}
-
-/* ---------------------------------------------------------------------
+/* ---------------------------------------------------------------------- 
    charges fluctuation due to electric field on bonds
 ------------------------------------------------------------------------ */
 
