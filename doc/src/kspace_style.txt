@@ -58,7 +58,7 @@ style = {none} or {ewald} or {ewald/disp} or {ewald/omp} or {pppm} or {pppm/cg} 
     accuracy = desired relative error in forces
     smallq = cutoff for charges to be considered (optional) (charge units)
   {scafacos} values = method accuracy
-    method = fmm or p2nfft or ewald or direct
+    method = fmm or p2nfft or p3m or ewald or direct
     accuracy = desired relative error in forces :pre
 :ule
 
@@ -370,8 +370,7 @@ of these styles.
 
 All of the kspace styles are part of the KSPACE package.  They are
 only enabled if LAMMPS was built with that package.  See the "Build
-package"_Build_package.html doc page for more info.  Note that the
-KSPACE package is installed by default.
+package"_Build_package.html doc page for more info.
 
 For MSM, a simulation must be 3d and one can use any combination of
 periodic, non-periodic, or shrink-wrapped boundaries (specified using
@@ -392,6 +391,8 @@ the same bond/angle/dihedral are weighted by the
 "special_bonds"_special_bonds.html command.  Likewise it does not
 support the "TIP4P water style" where a fictitious charge site is
 introduced in each water molecule.
+Finally, the methods {p3m} and {ewald} do not support computing the
+virial, so this contribution is not included.
 
 [Related commands:]
 
