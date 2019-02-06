@@ -120,7 +120,7 @@ void FixFRespDsf::q_update_Efield_bond()
   bigint molecule;
   int atom1_t, atom2_t, center_t, i, iplusone, bond, atom1_pos, atom2_pos;
   int molflag;
-  double bondv[3], E[3], Efield[3], Eparallel, ra1[3], ra2[3], erfc, rvmlsq;
+  double bondv[3], E[3], Efield[3], Eparallel, erfc, rvmlsq, partialerfc;
   double grij, expm2, first_scalar_part, second_scalar_part, third_scalar_part;
   double minus_grijsq, ddamping[3];
   double first_vector_part[3], second_vector_part[3], bondrvmprod, damping;
@@ -129,9 +129,12 @@ void FixFRespDsf::q_update_Efield_bond()
   static double tgecuospi = tgeospi * g_ewald * g_ewald;
   static double f_shift = MathSpecial::expmsq(g_ewald * cutoff3) *
     ((MathSpecial::my_erfcx(g_ewald * cutoff3) / cutoff3) + tgeospi) / cutoff3;
-  #ifndef __INTEL_MKL__
-  double partialerfc
-  #endif
+
+  //This cycle over all the atoms is absolutely needed
+  if (Efieldflag && qsqsum > 0.0) for (bond = 0; bond < nbond_old; bond++) {
+    for (i = 0; i < dEr_indexes[bond][0][0]; i++) dEr_vals[bond][i][0] =
+      dEr_vals[bond][i][1] = dEr_vals[bond][i][2] = 0.0;
+  }
 
   for (bond = 0; bond < nbond_old; bond++) {
     //E is initialized as {0., 0., 0.}
@@ -150,36 +153,21 @@ void FixFRespDsf::q_update_Efield_bond()
     bondv[0] = x[atom1][0] - x[atom2][0];
     bondv[1] = x[atom1][1] - x[atom2][1];
     bondv[2] = x[atom1][2] - x[atom2][2];
-    #ifdef __INTEL_MKL__
-    bondvl = cblas_dnrm2(3, bondv, 1);
-    #else
     bondvl = MathExtra::len3(bondv);
-    #endif
 
     //This check is here because, if false, bondv has already been calculated
     //and can be used for charge variation due to bond stretching
     //qsqsum is that declared in constructor, need to correct
     if (Efieldflag && qsqsum > 0.0) {
-
       bondvinv = 1.0 / bondvl;
       bondvinvsq = bondvinv * bondvinv;
-      #ifdef __INTEL_MKL__
-      cblas_dcopy(3, x[atom1], 1, xm, 1);
-      vdAdd(3, x[atom2], xm, xm);
-      cblas_dscal(3, 0.5, xm, 1);
-      #else
       xm[0] = (x[atom1][0] + x[atom2][0]) * 0.5;
       xm[1] = (x[atom1][1] + x[atom2][1]) * 0.5;
       xm[2] = (x[atom1][2] + x[atom2][2]) * 0.5;
-      #endif
       domain->minimum_image(xm[0], xm[1], xm[2]);
 
       atom1_pos = bond_extremes_pos[bond][0];
       atom2_pos = bond_extremes_pos[bond][1];
-
-      //This cycle over all the atoms is absolutely needed
-      for (i = 0; i < dEr_indexes[bond][0][0]; i++) dEr_vals[bond][i][0] =
-        dEr_vals[bond][i][1] = dEr_vals[bond][i][2] = 0.0;
 
       //The cycle is done over all the atoms contained 
       //in the Verlet list of bond
@@ -189,41 +177,11 @@ void FixFRespDsf::q_update_Efield_bond()
         global_center = atom->tag[center];
         //molflag = 1 if center is in the same molecule, 0 otherwise        
         molflag = atom->molecule[center] == molecule;
-        #ifdef __INTEL_MKL__
-        vdSub(3, xm, x[center], rvm);
-        domain->minimum_image(rvm[0], rvm[1], rvm[2]);
-        
-        //ra1 and ra2 are needed for force calculation
-        vdSub(3, x[atom1], x[center], ra1);
-        //dot product with itself is used in order to obtain square lenght
-        distances[bond][i][0] = cblas_ddot(3, ra1, 1, ra1, 1);
-
-        vdSub(3, x[center], x[atom2], ra2);
-        //dot product with itself is used in order to obtain square lenght
-        distances[bond][i][1] = cblas_ddot(3, ra2, 1, ra2, 1);
-
-        rvmlsq = cblas_ddot(3, rvm, 1, rvm, 1);
-        #else
         rvm[0] = xm[0] - x[center][0];
         rvm[1] = xm[1] - x[center][1];
         rvm[2] = xm[2] - x[center][2];
         domain->minimum_image(rvm[0], rvm[1], rvm[2]);
-
-        //ra1 and ra2 are needed for force calculation
-        ra1[0] = x[atom1][0] - x[center][0];
-        ra1[1] = x[atom1][1] - x[center][1];
-        ra1[2] = x[atom1][2] - x[center][2];
-        //domain->minimum_image(ra1[0], ra1[1], ra1[2]);
-        distances[bond][i][0] = MathExtra::lensq3(ra1);
-
-        ra2[0] = x[center][0] - x[atom2][0];
-        ra2[1] = x[center][1] - x[atom2][1];
-        ra2[2] = x[center][2] - x[atom2][2];
-        //domain->minimum_image(ra2[0], ra2[1], ra2[2]);
-        distances[bond][i][1] = MathExtra::lensq3(ra2);
-
         rvmlsq = MathExtra::lensq3(rvm);
-        #endif
 
         dEr_indexes[bond][iplusone][1] = (tagint)1;
 
@@ -241,18 +199,10 @@ void FixFRespDsf::q_update_Efield_bond()
         MathExtra::copy3(rvm, Efield);
         grij = g_ewald * rvml;
         q_gen = qgen[types[global_center - 1]];
-        #ifdef __INTEL_MKL__
-        bondrvmprod = cblas_ddot(3, bondv, 1, rvm, 1);
-        minus_grijsq = -grij * grij;
-        vdExp(1, &minus_grijsq, &expm2);
-        vdErfc(1, &grij, &erfc);
-        pref = rvminv * (erfc * rvminv + expm2 * tgeospi);
-        #else
         bondrvmprod = MathExtra::dot3(bondv, rvm);
         expm2 = MathSpecial::expmsq(grij);
         partialerfc = MathSpecial::my_erfcx(grij);
         pref = expm2 * rvminv * (partialerfc * rvminv + tgeospi);
-        #endif
         pref -= f_shift;
         pref *= q_gen * rvminv * bondvinv;
         //Now pref is A * q_gen / (|rvm||rb|)
@@ -328,11 +278,7 @@ void FixFRespDsf::q_update_Efield_bond()
         dEr_vals[bond][atom2_pos][2] += pref * first_vector_part[2] -
           second_vector_part[2];
       }
-      #ifdef __INTEL_MKL
-      Eparallel = cblas_ddot(3, E, 1, bondv, 1);
-      #else
       Eparallel = MathExtra::dot3(E, bondv);
-      #endif
       if (printEfieldflag) fprintf(stderr, "%i %i %.14lf\n", global_atom1,
         global_atom2, Eparallel);
     }
@@ -378,8 +324,6 @@ void FixFRespDsf::setup_pre_force(int vflag)
 
   nmax = atom->nmax;
   memory->create(deltaq, nmax, "fresp:deltaq");
-  memory->create(erfc_erf_arr, nmax, "fresp:erfc_erf_arr");
-  memory->create(already_cycled, nmax, "fresp:already_cycled");
 
   //an array of nbond double** is allocated in order to store the values of
   //derivatives of E_R * bond unit vector
@@ -390,13 +334,6 @@ void FixFRespDsf::setup_pre_force(int vflag)
     char str[128];
     sprintf(str,"Failed to allocate " BIGINT_FORMAT " bytes for array \
       fresp:dEr_vals", nbond_old * sizeof(double**));
-    error->one(FLERR,str);
-  }
-  distances = (double***) calloc(nbond_old, sizeof(double**));
-  if (distances == NULL) {
-    char str[128];
-    sprintf(str,"Failed to allocate " BIGINT_FORMAT " bytes for array \
-      fresp:distances", nbond_old * sizeof(double**));
     error->one(FLERR,str);
   }
   dEr_indexes = (tagint***) calloc(nbond_old, sizeof(tagint**));
@@ -410,7 +347,6 @@ void FixFRespDsf::setup_pre_force(int vflag)
 
   for (i = 0; i < nbond_old; i++) {
     dEr_vals[i] = NULL;
-    distances[i] = NULL;
     dEr_indexes[i] = NULL;
   }
 
@@ -441,8 +377,6 @@ void FixFRespDsf::post_neighbor()
   //per simulation.
   for (i = 0; i < nbond_old; i++) {
     memory->destroy(dEr_vals[i]);
-    memory->destroy(distances[i]);
-    distances[i] = NULL;
     dEr_vals[i] = NULL;
     end = dEr_indexes[i][0][0];
     for (j = 0; j <= end; j++) free(dEr_indexes[i][j]);
@@ -459,14 +393,11 @@ void FixFRespDsf::post_neighbor()
     memory->destroy(bond_extremes_pos);
     free(dEr_vals);
     free(dEr_indexes);
-    free(distances);
-    distances = (double***) calloc(nbond_old, sizeof(double**));
     dEr_vals = (double***) calloc(nbond_old, sizeof(double**));
     dEr_indexes = (tagint***) calloc(nbond_old, sizeof(tagint**));
     memory->create(bond_extremes_pos, nbond_old, 2, "fresp:bond_extremes_pos");
     for (i = 0; i < nbond_old; i++) {
       dEr_vals[i] = NULL;
-      distances[i] = NULL;
       dEr_indexes[i] = NULL;
     }
   }
@@ -497,19 +428,14 @@ void FixFRespDsf::pre_force(int vflag)
   if (atom->nmax > nmax) {
     nmax = atom->nmax;
     memory->grow(deltaq, nmax, "fresp:deltaq");
-    memory->grow(erfc_erf_arr, nmax, "fresp:erfc_erf_arr");
-    memory->grow(already_cycled, nmax, "fresp:already_cycled");
   }
 
-  //Activates calculation of kspace->eatom at each step
+  //Activates calculation of kspace->eatom and pair->eatomcoul at each step
   update->eflag_atom = update->eflag_global = update->ntimestep;
   pe->addstep(update->ntimestep + 1);
 
   //deltaq, erfc_erf_arr and already_cycled arrays are cleared
-  for (i = 0; i < nmax; i++) {
-    deltaq[i] = erfc_erf_arr[i] = 0.0;
-    already_cycled[i] = (short)0;
-  }
+  for (i = 0; i < nmax; i++) deltaq[i] = 0.0;
 
   if (Efieldflag || bondflag) q_update_Efield_bond();
   if (angleflag) q_update_angle();
@@ -526,15 +452,7 @@ void FixFRespDsf::pre_force(int vflag)
   pack_flag = 2;
   comm->forward_comm_fix(this);
 
-  build_erfc_erf_arr();
   if (force->kspace) force->kspace->qsum_qsq();
-
-  pack_flag = 3;
-  //erfc_erf_arr elements calculated for atoms outside process' box are
-  //communicated
-  comm->reverse_comm_fix(this);
-  //erfc_erf_arr elements are communicated
-  comm->forward_comm_fix(this);
 }
 
 /* ----------------------------------------------------------------------
@@ -546,7 +464,7 @@ void FixFRespDsf::pre_reverse(int eflag, int vflag)
   int bond, i, j, atom1_t, atom2_t, center_t;
   tagint der_atom, global_atom1, global_atom2, global_center, center;
   bigint molecule;
-  double alpha, alpha_tot_pot, v[6], deltaf[3];
+  double alpha, tot_pot, alpha_tot_pot, v[6], deltaf[3];
   double kb, kb_tot_pot, bondv[3], bondvinv;
   int atom1, atom2, atom1_pos, atom2_pos;
 
@@ -558,6 +476,10 @@ void FixFRespDsf::pre_reverse(int eflag, int vflag)
 
   //Communicate force->kspace->eatom for neighboring atoms.
   pack_flag = 1;
+  comm->forward_comm_fix(this);
+  //Communicate reverse and forward force->pair->eatomcoul
+  pack_flag = 3;
+  comm->reverse_comm_fix(this);
   comm->forward_comm_fix(this);
 
   for (bond = 0; bond < nbond_old; bond++) {
@@ -574,35 +496,31 @@ void FixFRespDsf::pre_reverse(int eflag, int vflag)
       bondv[0] = atom->x[atom1][0] - atom->x[atom2][0];
       bondv[1] = atom->x[atom1][1] - atom->x[atom2][1];
       bondv[2] = atom->x[atom1][2] - atom->x[atom2][2];
-      #ifdef __INTEL_MKL__
-      bondvinv = 1.0 / cblas_dnrm2(3, bondv, 1);
-      #else
       bondvinv = 1.0 / MathExtra::len3(bondv);
-      #endif
     }
-    for (i = 0; i < dEr_indexes[bond][0][0]; i++) {
-      if (dEr_indexes[bond][i + 1][1] == (tagint)-1) continue;
-      der_atom = dEr_indexes[bond][i + 1][0];
-      for (j = 1; j <= mol_map[(int)molecule - 1][0]; j++) {
-        global_center = (tagint)mol_map[molecule - 1][j];
-        center = atom->map(global_center);
-        center_t = types[global_center - 1];
-        alpha = k_Efield[atom1_t][atom2_t][center_t];
-        alpha_tot_pot = alpha * (erfc_erf_arr[center] + 2.0 *
-          force->kspace->eatom[center] / atom->q[center]);
-
+    for (j = 1; j <= mol_map[(int)molecule - 1][0]; j++) {
+      global_center = (tagint)mol_map[molecule - 1][j];
+      center = atom->map(global_center);
+      center_t = types[global_center - 1];
+      alpha = k_Efield[atom1_t][atom2_t][center_t];
+      tot_pot = 2.0 * (force->pair->eatomcoul[center] +
+        force->kspace->eatom[center]) / atom->q[center];
+      alpha_tot_pot = alpha * tot_pot;
+      if (bondflag) {
+        kb = k_bond[atom1_t][atom2_t][center_t];
+        kb_tot_pot = kb * tot_pot;
+      }
+      for (i = 0; i < dEr_indexes[bond][0][0]; i++) {
+        if (dEr_indexes[bond][i + 1][1] == (tagint)-1) continue;
+        der_atom = dEr_indexes[bond][i + 1][0];
         //Minus sign is needed because F = -dU/dr and dEr_vals * alpha_tot_pot
         //is dU/dr
         deltaf[0] = -dEr_vals[bond][i][0] * alpha_tot_pot;
         deltaf[1] = -dEr_vals[bond][i][1] * alpha_tot_pot;
         deltaf[2] = -dEr_vals[bond][i][2] * alpha_tot_pot;
         if (bondflag && (i == atom1_pos || i == atom2_pos)) {
-          kb = k_bond[atom1_t][atom2_t][center_t];
-          //Force contribution coming from bond stretching is reversed
           //if atom2 is considered
-          if (i == atom2_pos) kb *= -1.0;
-          kb_tot_pot = kb * (erfc_erf_arr[center] + 2.0 *
-            force->kspace->eatom[center] / atom->q[center]);
+          if (i == atom2_pos) kb_tot_pot *= -1.0;
           deltaf[0] -= bondv[0] * kb_tot_pot * bondvinv;
           deltaf[1] -= bondv[1] * kb_tot_pot * bondvinv;
           deltaf[2] -= bondv[2] * kb_tot_pot * bondvinv;
@@ -641,12 +559,11 @@ double FixFRespDsf::memory_usage()
     sizeof(double); //k_improper
   bytes += natypes * natypes * natypes * sizeof(double); //k_Efield
   bytes += 2 * natypes * sizeof(double); //q0 and qgen
-  bytes += 2 * nmax * sizeof(double); //deltaq and erfc_erf_arr
+  bytes += 1 * nmax * sizeof(double); //deltaq
   //dEr_vals, dEr_indexes and distances
   for (bond = 0; bond < nbond_old; bond ++)
     bytes += dEr_indexes[bond][0][0] * (2 * (sizeof(tagint) + sizeof(bigint) + \
     3 * sizeof(double))) + 3 * sizeof(bigint);
-  bytes += nmax * sizeof(short); //already_cycled
   return bytes;
 }
 

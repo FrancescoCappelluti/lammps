@@ -92,15 +92,9 @@ class FixFResp : public Fix {
   //the vector derivative
   double ***dEr_vals;
   //index 1 is bond index in bondlist, index 2 is atom index in Verlet list
-  //union for middle bond point and index 3 is 0 for distance between center
-  //and atom 1 and 1 for distance between center and atom2
-  double ***distances;
-  //index 1 is bond index in bondlist, index 2 is atom index in Verlet list
   //union for middle bond point
   tagint ***dEr_indexes;
   int **bond_extremes_pos;
-  //array where real space electrostatic potential per-atom is stored
-  double *erfc_erf_arr;
   double q2, qsum, qsqsum, scale, triclinic, accuracy, g_ewald;
   double unitk[3]; 
   int kxmax,kymax,kzmax;
@@ -126,13 +120,11 @@ class FixFResp : public Fix {
   double ***cs_qgen,***sn_qgen;
   double average_mol_size; //needed for memory_usage function
   //virtual double Efield_damping(int, double, double, double) = 0;
-  void build_erfc_erf_arr();
   void build_bond_Verlet_list(int, tagint, tagint);
   double ***appo2, **appo3; //arrays used by kspace force correction calculation
   char *id_pe;
   int pack_flag;
   int count_total_bonds();
-  short *already_cycled;
   class Compute *pe; // PE compute pointer
   double **kvecs; //vectors in k-space
   double *bondvskprod_vec, *xmkprod_vec, *Im_xm_vec, *Re_xm_vec, *tmp1, *tmp2;

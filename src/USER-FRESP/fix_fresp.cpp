@@ -114,7 +114,7 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
     counter[i] = 0;
   }
   MPI_Barrier(world);
-  average_mol_size /= (double) nmolecules;
+  average_mol_size /= (double)nmolecules;
 
   //Each row of mol_map is filled with global indexes of atoms holded
   //  by the process starting by position 1
@@ -173,8 +173,6 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
   pack_flag = 0;
 
   memory->create(deltaq, atom->nmax, "fresp:deltaq");
-  memory->create(erfc_erf_arr, atom->nmax, "fresp:erfc_erf_arr");
-  memory->create(already_cycled, atom->nmax, "fresp:already_cycled");
 
   warn_nonneutral = warn_nocharge = 1;
   kmax_created = kmax = kcount = nmax = 0;
@@ -191,24 +189,17 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
   char str1[] = "all";
   char str2[] = "pe/atom";
   char str3[] = "kspace";
-  char **str = (char**) calloc(4, sizeof(char*));
+  char str4[] = "pair";
+  char **str = (char**) calloc(5, sizeof(char*));
   str[0] = const_cast<char *>(id_pe);
   str[1] = str1;
   str[2] = str2;
   str[3] = str3;
-  modify->add_compute(4, str);
+  str[4] = str4;
+  modify->add_compute(5, str);
   free(str);
   //atom->add_callback(0); ???
   
-  if (force->pair->ncoultablebits > 0) {
-    force->pair->ncoultablebits = 0;
-    if (comm->me == 0) {
-      if (screen) fprintf(screen, "In order to correctly use fix fresp, \
-      ncoultablebits is set to 0\n");
-      if (logfile) fprintf(logfile, "In order to correctly use fix fresp, \
-      ncoultablebits is set to 0\n");
-    }
-  }  
 }
 
 /* --------------------------------------------------------------------- 
@@ -232,18 +223,14 @@ FixFResp::~FixFResp() {
   memory->destroy(deltaq);
   for (i = 0; i < nbond_old; i++) {
     memory->destroy(dEr_vals[i]);
-    memory->destroy(distances[i]);
     end = dEr_indexes[i][0][0];
     for (j = 0; j <= end; j++) free(dEr_indexes[i][j]);
     memory->sfree(dEr_indexes[i]);
   }
   free(dEr_vals);
-  free(distances);
   free(dEr_indexes);
   memory->destroy(bond_extremes_pos);
-  memory->destroy(erfc_erf_arr);
   modify->delete_compute(id_pe);
-  memory->destroy(already_cycled);
 
 }
 
@@ -319,8 +306,7 @@ int FixFResp::pack_forward_comm(int n, int *list, double *buf,
     force->kspace->eatom[list[m]];
   else if (pack_flag == 2) for(m = 0; m < n; m++) buf[m] = atom->q[list[m]];
   else if (pack_flag == 3) for(m = 0; m < n; m++) buf[m] =
-    erfc_erf_arr[list[m]];
-
+    force->pair->eatomcoul[list[m]];
   return m;
 }
 
@@ -335,7 +321,7 @@ void FixFResp::unpack_forward_comm(int n, int first, double *buf)
   else if (pack_flag == 2) for(m = 0, i = first; m < n; m++, i++)
     atom->q[i] = buf[m];
   else if (pack_flag == 3) for(m = 0, i = first; m < n; m++, i++)
-    erfc_erf_arr[i] = buf[m];
+    force->pair->eatomcoul[i] = buf[m];
 }
 
 /* ---------------------------------------------------------------------- */
@@ -346,7 +332,7 @@ int FixFResp::pack_reverse_comm(int n, int first, double *buf)
   if (pack_flag == 1) for (m = 0, i = first; m < n; m++, i++)
     buf[m] = deltaq[i];
   else if (pack_flag == 3) for (m = 0, i = first; m < n; m++, i++)
-    buf[m] = erfc_erf_arr[i];
+    buf[m] = force->pair->eatomcoul[i];
   return m;
 }
 
@@ -358,7 +344,7 @@ void FixFResp::unpack_reverse_comm(int n, int *list, double *buf)
 
   if (pack_flag == 1) for(m = 0; m < n; m++) deltaq[list[m]] += buf[m];
   else if (pack_flag == 3) for (m = 0; m < n; m++)
-    erfc_erf_arr[list[m]] += buf[m];
+    force->pair->eatomcoul[list[m]] += buf[m];
 }
 
 /* ---------------------------------------------------------------------
@@ -896,7 +882,6 @@ void FixFResp::build_bond_Verlet_list(int bond, tagint atom1, tagint atom2)
   //array of derivatives for direct Efield * bond unit vector is allocated 
   //with first dimension that is number of atoms in Verlet list of bond
   memory->create(dEr_vals[bond], total_size, 3, "fresp:dEr_vals comp");
-  memory->create(distances[bond], total_size, 2, "fresp:distances comp");
   dEr_indexes[bond] = (tagint**) memory->smalloc((total_size + 1) * 
     sizeof(tagint*), "fresp:dEr_indexes comp");
   dEr_indexes[bond][0] = (tagint*) calloc(3, sizeof(tagint));
@@ -936,79 +921,4 @@ int FixFResp::count_total_bonds() {
     }
   }
   return n;
-}
-
-/* ----------------------------------------------------------------------
-   erfc_erf_arr is built cycling over ends of local bonds
-   ---------------------------------------------------------------------- */
-
-void FixFResp::build_erfc_erf_arr()
-{
-  int bond, i, atom1_type, atom2_type, center_type;
-  int *type = atom->type;
-  char molflag;
-  tagint atom1, atom2, global_atom1, global_atom2, center;
-  double ra1l, ra2l, ra1lsq, ra2lsq, grij, erfc;
-  double **cutsq = force->pair->cutsq;
-  const double main_gewald = force->kspace->g_ewald, qscale = force->qqrd2e *
-    1.0; //1.0 is scale
-
-  for (bond = 0; bond < nbond_old; bond++) {
-    atom1 = dEr_indexes[bond][0][1];
-    atom2 = dEr_indexes[bond][0][2];
-    if (already_cycled[atom1] && already_cycled[atom2]) continue;
-    global_atom1 = atom->tag[atom1];
-    global_atom2 = atom->tag[atom2];
-
-    //Needed because, in some cases, atom? is very big and num_bond[atom?]
-    //returns strange results. Maybe domain->closest_image() can be useful.
-    if (atom1 > atom->natoms) atom1 = atom->map(global_atom1);
-    if (atom2 > atom->natoms) atom2 = atom->map(global_atom2);
-    atom1_type = type[atom1];
-    atom2_type = type[atom2];
-
-    for (i = 1; i <= dEr_indexes[bond][0][0]; i++) {
-      center = dEr_indexes[bond][i][0];
-      center_type = type[center];
-      molflag = atom->molecule[atom1] == atom->molecule[center];
-      ra1lsq = distances[bond][i - 1][0];
-      ra2lsq = distances[bond][i - 1][1];
-      //Check if ra1lsq > 0.0 is needed because atom1 itself can be contained
-      //in dEr_indexes[bond]
-      if (!already_cycled[atom1] && ra1lsq < cutsq[atom1_type][center_type] &&
-        ra1lsq > 0.0) {
-        ra1l = sqrt(ra1lsq);
-        grij = main_gewald * ra1l;
-        #ifdef __INTEL_MKL__
-        vdErfc(1, &grij, &erfc);
-        #else
-        erfc = MathSpecial::my_erfcx(grij) * MathSpecial::expmsq(grij);
-        #endif
-        if (!molflag) erfc_erf_arr[atom1] += atom->q[center] * erfc / ra1l;
-        else erfc_erf_arr[atom1] -= atom->q[center] * (1.0 - erfc) / ra1l;
-      }
-      //Check if ra2lsq > 0.0 is needed because atom2 itself can be contained
-      //in dEr_indexes[bond]
-      if (!already_cycled[atom2] && ra2lsq < cutsq[atom2_type][center_type]
-        && ra2lsq > 0.0) {
-        ra2l = sqrt(ra2lsq);
-        grij = main_gewald * ra2l;
-        #ifdef __INTEL_MKL__
-        vdErfc(1, &grij, &erfc);
-        #else
-        erfc = MathSpecial::my_erfcx(grij) * MathSpecial::expmsq(grij);
-        #endif
-        if (!molflag) erfc_erf_arr[atom2] += atom->q[center] * erfc / ra2l;
-        else erfc_erf_arr[atom2] -= atom->q[center] * (1.0 - erfc) / ra2l;
-      }
-    }
-    if (!already_cycled[atom1]) {
-      erfc_erf_arr[atom1] *= qscale;
-      already_cycled[atom1] = (short)1;
-    }
-    if (!already_cycled[atom2]) {
-      erfc_erf_arr[atom2] *= qscale;
-      already_cycled[atom2] = (short)1;
-    }
-  }
 }

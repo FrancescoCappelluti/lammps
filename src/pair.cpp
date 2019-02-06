@@ -94,7 +94,7 @@ Pair::Pair(LAMMPS *lmp) : Pointers(lmp)
   suffix_flag = Suffix::NONE;
 
   maxeatom = maxvatom = 0;
-  eatom = NULL;
+  eatom = eatomcoul = eatomvdw = NULL;
   vatom = NULL;
 
   num_tally_compute = 0;
@@ -120,6 +120,8 @@ Pair::~Pair()
   if (copymode) return;
 
   memory->destroy(eatom);
+  memory->destroy(eatomcoul);
+  memory->destroy(eatomvdw);
   memory->destroy(vatom);
 }
 
@@ -785,7 +787,11 @@ void Pair::ev_setup(int eflag, int vflag, int alloc)
     maxeatom = atom->nmax;
     if (alloc) {
       memory->destroy(eatom);
+      memory->destroy(eatomcoul);
+      memory->destroy(eatomvdw);
       memory->create(eatom,comm->nthreads*maxeatom,"pair:eatom");
+      memory->create(eatomcoul,comm->nthreads*maxeatom,"pair:eatomc");
+      memory->create(eatomvdw,comm->nthreads*maxeatom,"pair:eatomlj");
     }
   }
   if (vflag_atom && atom->nmax > maxvatom) {
@@ -805,7 +811,7 @@ void Pair::ev_setup(int eflag, int vflag, int alloc)
   if (eflag_atom && alloc) {
     n = atom->nlocal;
     if (force->newton) n += atom->nghost;
-    for (i = 0; i < n; i++) eatom[i] = 0.0;
+    for (i = 0; i < n; i++) eatom[i] = eatomcoul[i] = eatomvdw[i] = 0.0;
   }
   if (vflag_atom && alloc) {
     n = atom->nlocal;
@@ -893,8 +899,16 @@ void Pair::ev_tally(int i, int j, int nlocal, int newton_pair,
     }
     if (eflag_atom) {
       epairhalf = 0.5 * (evdwl + ecoul);
-      if (newton_pair || i < nlocal) eatom[i] += epairhalf;
-      if (newton_pair || j < nlocal) eatom[j] += epairhalf;
+      if (newton_pair || i < nlocal) {
+        eatom[i] += epairhalf;
+        eatomcoul[i] += 0.5 * ecoul;
+        eatomvdw[i] += 0.5 * evdwl;
+      }
+      if (newton_pair || j < nlocal) {
+        eatom[j] += epairhalf;
+        eatomcoul[j] += 0.5 * ecoul;
+        eatomvdw[j] += 0.5 * evdwl;
+      }
     }
   }
 
@@ -978,7 +992,11 @@ void Pair::ev_tally_full(int i, double evdwl, double ecoul, double fpair,
       eng_vdwl += 0.5*evdwl;
       eng_coul += 0.5*ecoul;
     }
-    if (eflag_atom) eatom[i] += 0.5 * (evdwl + ecoul);
+    if (eflag_atom) {
+      eatom[i] += 0.5 * (evdwl + ecoul);
+      eatomcoul[i] += 0.5 * ecoul;
+      eatomvdw[i] += 0.5 * evdwl;
+    }
   }
 
   if (vflag_either) {
@@ -1041,8 +1059,16 @@ void Pair::ev_tally_xyz(int i, int j, int nlocal, int newton_pair,
     }
     if (eflag_atom) {
       epairhalf = 0.5 * (evdwl + ecoul);
-      if (newton_pair || i < nlocal) eatom[i] += epairhalf;
-      if (newton_pair || j < nlocal) eatom[j] += epairhalf;
+      if (newton_pair || i < nlocal) {
+        eatom[i] += epairhalf;
+        eatomcoul[i] += 0.5 * ecoul;
+        eatomvdw[i] += 0.5 * evdwl;
+      }
+      if (newton_pair || j < nlocal) {
+        eatom[j] += epairhalf;
+        eatomcoul[j] += 0.5 * ecoul;
+        eatomvdw[j] += 0.5 * evdwl;
+      }
     }
   }
 
@@ -1125,6 +1151,8 @@ void Pair::ev_tally_xyz_full(int i, double evdwl, double ecoul,
     if (eflag_atom) {
       epairhalf = 0.5 * (evdwl + ecoul);
       eatom[i] += epairhalf;
+      eatomcoul[i] += 0.5 * ecoul;
+      eatomvdw[i] += 0.5 * evdwl;
     }
   }
 
@@ -1175,8 +1203,14 @@ void Pair::ev_tally3(int i, int j, int k, double evdwl, double ecoul,
     if (eflag_atom) {
       epairthird = THIRD * (evdwl + ecoul);
       eatom[i] += epairthird;
+      eatomcoul[i] += THIRD * ecoul;
+      eatomvdw[i] += THIRD * evdwl;
       eatom[j] += epairthird;
+      eatomcoul[j] += THIRD * ecoul;
+      eatomvdw[j] += THIRD * evdwl;
       eatom[k] += epairthird;
+      eatomcoul[k] += THIRD * ecoul;
+      eatomvdw[k] += THIRD * evdwl;
     }
   }
 

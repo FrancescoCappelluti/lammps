@@ -36,6 +36,7 @@ class Pair : protected Pointers {
   double eng_vdwl,eng_coul;      // accumulated energies
   double virial[6];              // accumulated virial
   double *eatom,**vatom;         // accumulated per-atom energy/virial
+  double *eatomcoul,*eatomvdw;   // accumulated per-atom ecoul/evdwl
 
   double cutforce;               // max cutoff for all atom pairs
   double **cutsq;                // cutoff sq for each atom pair

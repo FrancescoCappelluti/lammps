@@ -1284,11 +1284,9 @@ void FixFRespEwald::q_update_Efield_bond()
         //ra1 and ra2 are needed for force calculation
         vdSub(3, x[atom1], x[center], ra1);
         //dot product with itself is used in order to obtain square lenght
-        distances[bond][i][0] = cblas_ddot(3, ra1, 1, ra1, 1);
 
         vdSub(3, x[center], x[atom2], ra2);
         //dot product with itself is used in order to obtain square lenght
-        distances[bond][i][1] = cblas_ddot(3, ra2, 1, ra2, 1);
 
         rvmlsq = cblas_ddot(3, rvm, 1, rvm, 1);
         #else
@@ -1302,13 +1300,11 @@ void FixFRespEwald::q_update_Efield_bond()
         ra1[1] = x[atom1][1] - x[center][1];
         ra1[2] = x[atom1][2] - x[center][2];
         //domain->minimum_image(ra1[0], ra1[1], ra1[2]);
-        distances[bond][i][0] = MathExtra::lensq3(ra1);
 
         ra2[0] = x[center][0] - x[atom2][0];
         ra2[1] = x[center][1] - x[atom2][1];
         ra2[2] = x[center][2] - x[atom2][2];
         //domain->minimum_image(ra2[0], ra2[1], ra2[2]);
-        distances[bond][i][1] = MathExtra::lensq3(ra2);
 
         rvmlsq = MathExtra::lensq3(rvm);
         #endif
@@ -1585,11 +1581,7 @@ void FixFRespEwald::setup_pre_force(int vflag)
   nbond_old = count_total_bonds();
 
   //If nmax has changed, deltaq and erfc_erf_arr are resized.
-  if (atom->nmax != nmax) {
-    memory->grow(deltaq, atom->nmax, "fresp:deltaq");
-    memory->grow(erfc_erf_arr, atom->nmax, "fresp:erfc_erf_arr");
-    memory->grow(already_cycled, atom->nmax, "fresp:already_cycled");
-  }
+  if (atom->nmax != nmax) memory->grow(deltaq, atom->nmax, "fresp:deltaq");
 
   //kspace solver ewald is initialized.
   ewald_init();
@@ -1606,14 +1598,6 @@ void FixFRespEwald::setup_pre_force(int vflag)
             nbond_old * sizeof(double**));
     error->one(FLERR,str);
   }
-  distances = (double***) calloc(nbond_old, sizeof(double**));
-  if (distances == NULL) {
-    char str[128];
-    sprintf(str,"Failed to allocate " BIGINT_FORMAT " bytes for array \
-      fresp:distances",
-            nbond_old * sizeof(double**));
-    error->one(FLERR,str);
-  }
   dEr_indexes = (tagint***) calloc(nbond_old, sizeof(tagint**));
   if (dEr_indexes == NULL) {
     char str[128];
@@ -1626,7 +1610,6 @@ void FixFRespEwald::setup_pre_force(int vflag)
 
   for (i = 0; i < nbond_old; i++) {
     dEr_vals[i] = NULL;
-    distances[i] = NULL;
     dEr_indexes[i] = NULL;
   }
 
@@ -1661,8 +1644,6 @@ void FixFRespEwald::post_neighbor()
   //per simulation.
   for (i = 0; i < nbond_old; i++) {
     memory->destroy(dEr_vals[i]);
-    memory->destroy(distances[i]);
-    distances[i] = NULL;
     dEr_vals[i] = NULL;
     end = dEr_indexes[i][0][0];
     for (j = 0; j <= end; j++) free(dEr_indexes[i][j]);
@@ -1679,14 +1660,11 @@ void FixFRespEwald::post_neighbor()
     memory->destroy(bond_extremes_pos);
     free(dEr_vals);
     free(dEr_indexes);
-    free(distances);
-    distances = (double***) calloc(nbond_old, sizeof(double**));
     dEr_vals = (double***) calloc(nbond_old, sizeof(double**));
     dEr_indexes = (tagint***) calloc(nbond_old, sizeof(tagint**));
     memory->create(bond_extremes_pos, nbond_old, 2, "fresp:bond_extremes_pos");
     for (i = 0; i < nbond_old; i++) {
       dEr_vals[i] = NULL;
-      distances[i] = NULL;
       dEr_indexes[i] = NULL;
     }
     memory->destroy(appo2);
@@ -1716,21 +1694,14 @@ void FixFRespEwald::pre_force(int vflag)
 
   int i;
 
-  if (atom->nmax != nmax) {
-    memory->grow(deltaq, atom->nmax, "fresp:deltaq");
-    memory->grow(erfc_erf_arr, atom->nmax, "fresp:erfc_erf_arr");
-    memory->grow(already_cycled, atom->nmax, "fresp:already_cycled");
-  }
+  if (atom->nmax != nmax) memory->grow(deltaq, atom->nmax, "fresp:deltaq");
 
-  //Activates calculation of kspace->eatom at each step
+  //Activates calculation of kspace->eatom and pair->eatomcoul at each step
   update->eflag_atom = update->eflag_global = update->ntimestep;
   pe->addstep(update->ntimestep + 1);
 
-  //deltaq ,rfc_erf_arr and already_cycled arrays are cleared
-  for (i = 0; i < atom->nmax; i++) {
-    deltaq[i] = erfc_erf_arr[i] = 0.0;
-    already_cycled[i] = (short)0;
-  }
+  //deltaq, erfc_erf_arr and already_cycled arrays are cleared
+  for (i = 0; i < atom->nmax; i++) deltaq[i] = 0.0;
 
   ewald_structure_factor();
 
@@ -1749,15 +1720,7 @@ void FixFRespEwald::pre_force(int vflag)
   pack_flag = 2;
   comm->forward_comm_fix(this);
 
-  build_erfc_erf_arr();
   if (force->kspace) force->kspace->qsum_qsq();
-
-  pack_flag = 3;
-  //erfc_erf_arr elements calculated for atoms outside process' box are
-  //communicated
-  comm->reverse_comm_fix(this);
-  //erfc_erf_arr elements are communicated
-  comm->forward_comm_fix(this);
 }
 
 /* ----------------------------------------------------------------------
@@ -1785,6 +1748,10 @@ void FixFRespEwald::pre_reverse(int eflag, int vflag)
 
   //Communicate force->kspace->eatom for neighboring atoms.
   pack_flag = 1;
+  comm->forward_comm_fix(this);
+  //Communicate reverse and forward force->pair->eatomcoul
+  pack_flag = 3;
+  comm->reverse_comm_fix(this);
   comm->forward_comm_fix(this);
 
   //appo3 is filled with zeros
@@ -1816,9 +1783,8 @@ void FixFRespEwald::pre_reverse(int eflag, int vflag)
       center = atom->map(global_center);
       center_t = types[global_center - 1];
       alpha = k_Efield[atom1_t][atom2_t][center_t];
-      //Multipication of qscale times erfc_erf_arr is done in build_erfc_erf_arr
-      alpha_tot_pot = alpha * (erfc_erf_arr[center] + 2.0 *
-        force->kspace->eatom[center] / atom->q[center]);
+      alpha_tot_pot = alpha * (2.0 * (force->pair->eatomcoul[center] +
+        force->kspace->eatom[center]) / atom->q[center]);
       //Virial calculation still not correctly implemented!!
       //alpha_real_space_pot = alpha * (erfc_erf_arr[center] - 
       //prefac * atom->q[center]);
@@ -1839,8 +1805,8 @@ void FixFRespEwald::pre_reverse(int eflag, int vflag)
           //Force contribution coming from bond stretching is reversed
           //if atom2 is considered
           if (j == atom2_pos) kb *= -1.0;
-          kb_tot_pot = kb * (erfc_erf_arr[center] + 2.0 *
-            force->kspace->eatom[center] / atom->q[center]);
+          kb_tot_pot = kb * (2.0 * (force->pair->eatomcoul[center] +
+            force->kspace->eatom[center]) / atom->q[center]);
           atom->f[der_atom][0] -= bondv[0] * kb_tot_pot * bondvinv;
           atom->f[der_atom][1] -= bondv[1] * kb_tot_pot * bondvinv;
           atom->f[der_atom][2] -= bondv[2] * kb_tot_pot * bondvinv;
@@ -1924,15 +1890,13 @@ double FixFRespEwald::memory_usage()
     sizeof(double); //k_improper
   bytes += natypes * natypes * natypes * sizeof(double); //k_Efield
   bytes += 2 * natypes * sizeof(double); //q0 and qgen
-  //bytes += 5 * atom->nmax * sizeof(double); //deltaq, deltaf and erfc_erf_arr
-  bytes += 2 * atom->nmax * sizeof(double); //deltaq and erfc_erf_arr
+  bytes += 1 * atom->nmax * sizeof(double); //deltaq
   bytes += kcount * 6 * sizeof(double); //appo3
   bytes += nbond_old * 6 * kcount * sizeof(double); //appo2
   //dEr_vals, dEr_indexes and distances
   for (bond = 0; bond < nbond_old; bond ++)
     bytes += dEr_indexes[bond][0][0] * (2 * (sizeof(tagint) + sizeof(bigint) + \
     3 * sizeof(double))) + 3 * sizeof(bigint);
-  bytes += atom->nmax * sizeof(short); //already_cycled
   #ifdef __INTEL_MKL__
   //arrays used for BLAS functions in reciprocal space part of q_update_Efield
   bytes += 10 * kcount * sizeof(double);
