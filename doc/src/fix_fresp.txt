@@ -9,18 +9,19 @@
 fix fresp command :h3
 fix fresp/ewald command :h3
 fix fresp/dsf command :h3
+fix fresp/mdsf command :h3
 
 [Syntax:]
 
 fix ID group-ID style Nevery cutoff3 alpha filename1 filename2 keyword ... :pre
 
 ID, group-ID are documented in "fix"_fix.html command :ulb,l
-style = {fresp/ewald} or {fresp/dsf} :l
+style = {fresp/ewald} or {fresp/dsf} or {fresp/mdsf} :l
 Nevery = perform charge update every this many steps (currently Nevery always equal 1) :l
 cutoff3 = cutoff for fictitious electric field calculation (distance unit) :l
 filename1 = name of the file containing the mapping between global atomic indexes and F-RESP types :l
 filename2 = name of the file containing F-RESP parameters used for charge update :l
-alpha = parameter used by DSF potential (fresp/dsf only) :l
+alpha = parameter used by DSF potential (fresp/dsf and fresp/mdsf only) :l
 
 zero or more keyword/value pairs may be appended :l
 keyword = {g_ewald} or {kmax} or {damp} :l
@@ -34,6 +35,7 @@ keyword = {g_ewald} or {kmax} or {damp} :l
 
 fix 1 all fresp/ewald 1 8 fresp_types.dat polarparm.dat damp sin 0.3 2.0
 fix 1 all fresp/dsf 1 12 0.1 fresp_types.dat polarparm.dat damp exp 0.3 2.0 :pre
+fix 1 all fresp/mdsf 1 13 0.1 fresp_types.dat polarparm.dat damp exp 0.5 2.0 :pre
 
 [Description:]
 
@@ -56,10 +58,7 @@ as parameters.
 An "article"_#Cappelluti1 describing this method is about to be 
 submitted.
 
-These fixes can be used only with "full atom style"_atom_style.html
-and pair styles having no tail correction for Van der Waals interactions
-and coul_long electrostatic interaction ("pair_lj_cut_coul_long"_pair_lj.html 
-e.g.), at the moment.
+These fixes can be used only with "full atom style"_atom_style.html.
 
 F-RESP method requires a few parameters that have to be provided in two
 files specified by {filename1} and {filename2}.
@@ -121,6 +120,9 @@ bonds by using "(Ewald)"_#Ewald1 summation technique.
 The {fresp/dsf} style calculates the fictitious electric field over 
 bonds by using DSF technique by "(Fennell and Gezelter)"_#Fennell3.
 
+The {fresp/mdsf} style calculates the fictitious electric field over 
+bonds by using mDSF technique by "(Waibel)"_#Waibel1.
+
 [Restart, fix_modify, output, run start/stop, minimize info:]
 
 No information about these fixes is written to "binary restart
@@ -155,3 +157,6 @@ Chem. Phys., 124.23, 234104, (2006)
 
 :link(Ewald1)
 [(Ewald)] P. P. Ewald, Annalen der physik, 369.3, 253-287 (1921)
+
+:link(Waibel1)
+[(Waibel)] C. Waibel, Jour. Chem. Theory Comput., 15, 572-583 (2019

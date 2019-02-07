@@ -19,27 +19,22 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <mkl.h> //Not mandatory
 #include "fix_fresp_ewald.h"
-#include "angle.h"
 #include "atom.h"
 #include "bond.h"
 #include "comm.h"
-#include "compute.h"
-#include "dihedral.h"
 #include "domain.h"
-#include "improper.h"
 #include "neighbor.h"
 #include "neigh_list.h"
 #include "neigh_request.h"
 #include "update.h"
+#include "compute.h"
 #include "force.h"
 #include "math_special.h"
 #include "math_const.h"
 #include "memory.h"
 #include "pair.h"
-#include "modify.h"
 #include "error.h"
 #include "math_extra.h"
 #include "kspace.h"
@@ -1204,7 +1199,7 @@ void FixFRespEwald::ewald_structure_factor()
 void FixFRespEwald::q_update_Efield_bond()
 {
   double xm[3], **x = atom->x, k, rvml, rvminv, rvminvsq, rvminvcu;
-  double rvm[3], rvmvs[3], r0, dr, bondvl, bondvinv; 
+  double rvm[3], rvmvs[3], r0, bondvl, bondvinv; 
   bigint atom1, atom2, center, global_center, global_atom1, global_atom2;
   bigint molecule;
   int atom1_t, atom2_t, center_t, i, bond, atom1_pos, atom2_pos, molflag;
@@ -1543,29 +1538,9 @@ void FixFRespEwald::q_update_Efield_bond()
 
     if (bondflag) {
       r0 = force->bond->equilibrium_distance(neighbor->bondlist[bond][2]);
-      dr = bondvl - r0;
+      deltaq_update(molecule, atom1_t, atom2_t, Eparallel, bondvl - r0);
     }
-
-    //The cycle is done over all the atoms contained in the same molecule of
-    //the bond
-    for (i = 1; i <= mol_map[molecule - 1][0]; i++) {
-      global_center = mol_map[molecule - 1][i];
-      center = atom->map((int)global_center);
-      center_t = types[global_center - 1];
-      k = k_Efield[atom1_t][atom2_t][center_t];
-
-      //Charge variation are put in deltaq instead of atom->q in order to
-      //permit their communication to other processes
-      deltaq[center] += k * Eparallel;
-
-      if (bondflag) {
-        k = k_bond[atom1_t][atom2_t][center_t];
-
-        //Charge variation are put in deltaq instead of atom->q in order to
-        //permit their communication to other processes
-        deltaq[center] += k * dr;
-      }
-    }
+    else deltaq_update(molecule, atom1_t, atom2_t, Eparallel);
   }
 }
 

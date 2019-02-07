@@ -19,27 +19,20 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <mkl.h> //Not mandatory
 #include "fix_fresp_dsf.h"
-#include "angle.h"
 #include "atom.h"
 #include "bond.h"
 #include "comm.h"
-#include "compute.h"
-#include "dihedral.h"
 #include "domain.h"
-#include "improper.h"
 #include "neighbor.h"
-#include "neigh_list.h"
-#include "neigh_request.h"
 #include "update.h"
+#include "compute.h"
 #include "force.h"
 #include "math_special.h"
 #include "math_const.h"
 #include "memory.h"
 #include "pair.h"
-#include "modify.h"
 #include "error.h"
 #include "math_extra.h"
 #include "kspace.h"
@@ -50,7 +43,7 @@ using namespace FixConst;
 #define MAXLINE 1024
 #define SMALL     0.001
 
-enum damp {NONE, EXP, SIN} dampflg;
+//enum damp {NONE, EXP, SIN} dampflg;
 
 /* ---------------------------------------------------------------------- */
 
@@ -114,16 +107,16 @@ FixFRespDsf::~FixFRespDsf()
 
 void FixFRespDsf::q_update_Efield_bond()
 {
-  double xm[3], **x = atom->x, k, rvml, rvminv, rvminvsq, rvm[3], r0, dr;
+  double xm[3], **x = atom->x, k, rvml, rvminv, rvminvsq, rvm[3], r0;
   double  bondvl, bondvinv, bondvinvsq, pref, q_gen; 
   bigint atom1, atom2, center, global_center, global_atom1, global_atom2;
   bigint molecule;
   int atom1_t, atom2_t, center_t, i, iplusone, bond, atom1_pos, atom2_pos;
   int molflag;
   double bondv[3], E[3], Efield[3], Eparallel, erfc, rvmlsq, partialerfc;
-  double grij, expm2, first_scalar_part, second_scalar_part, third_scalar_part;
+  double grij, expm2, fsp, ssp, tsp;
   double minus_grijsq, ddamping[3];
-  double first_vector_part[3], second_vector_part[3], bondrvmprod, damping;
+  double fvp[3], svp[3], bondrvmprod, damping;
   static double tgeospi = 2.0 * g_ewald / MathConst::MY_PIS;
   static double cutoff3sq = cutoff3 * cutoff3, cutoff1sq = cutoff1 * cutoff1;
   static double tgecuospi = tgeospi * g_ewald * g_ewald;
@@ -131,9 +124,13 @@ void FixFRespDsf::q_update_Efield_bond()
     ((MathSpecial::my_erfcx(g_ewald * cutoff3) / cutoff3) + tgeospi) / cutoff3;
 
   //This cycle over all the atoms is absolutely needed
-  if (Efieldflag && qsqsum > 0.0) for (bond = 0; bond < nbond_old; bond++) {
-    for (i = 0; i < dEr_indexes[bond][0][0]; i++) dEr_vals[bond][i][0] =
-      dEr_vals[bond][i][1] = dEr_vals[bond][i][2] = 0.0;
+  if (Efieldflag && qsqsum > 0.0) {
+    #pragma vector
+    for (bond = 0; bond < nbond_old; bond++) {
+      #pragma vector
+      for (i = 0; i < dEr_indexes[bond][0][0]; i++) dEr_vals[bond][i][0] =
+        dEr_vals[bond][i][1] = dEr_vals[bond][i][2] = 0.0;
+    }
   }
 
   for (bond = 0; bond < nbond_old; bond++) {
@@ -206,16 +203,16 @@ void FixFRespDsf::q_update_Efield_bond()
         pref -= f_shift;
         pref *= q_gen * rvminv * bondvinv;
         //Now pref is A * q_gen / (|rvm||rb|)
-        first_scalar_part = 3.0 * bondrvmprod * rvminvsq;
-        third_scalar_part = q_gen * bondvinv * rvminvsq * bondrvmprod *
+        fsp = 3.0 * bondrvmprod * rvminvsq;
+        tsp = q_gen * bondvinv * rvminvsq * bondrvmprod *
           (f_shift * rvminv + expm2 * tgecuospi);
 
         if (rvml < cutoff2 && dampflag > 0) {
           MathExtra::copy3(rvm, ddamping);
           damping = Efield_damping(rvml, ddamping);
-          //third_scalar_part is multiplied times damping. Because pref too will
+          //tsp is multiplied times damping. Because pref too will
           //be multiplied times damping, the whole Efield derivative is damped.
-          third_scalar_part *= damping;
+          tsp *= damping;
           MathExtra::scale3(bondrvmprod * rvminv * pref, ddamping);
           pref *= damping;
           MathExtra::add3(ddamping, dEr_vals[bond][i], dEr_vals[bond][i]);
@@ -232,51 +229,36 @@ void FixFRespDsf::q_update_Efield_bond()
         MathExtra::scale3(pref, Efield);
         MathExtra::add3(E, Efield, E);
 
-        first_vector_part[0] = first_scalar_part * rvm[0] - bondv[0];
-        first_vector_part[1] = first_scalar_part * rvm[1] - bondv[1];
-        first_vector_part[2] = first_scalar_part * rvm[2] - bondv[2];
-        second_vector_part[0] = third_scalar_part * rvm[0];
-        second_vector_part[1] = third_scalar_part * rvm[1];
-        second_vector_part[2] = third_scalar_part * rvm[2];
+        fvp[0] = fsp * rvm[0] - bondv[0];
+        fvp[1] = fsp * rvm[1] - bondv[1];
+        fvp[2] = fsp * rvm[2] - bondv[2];
+        svp[0] = tsp * rvm[0];
+        svp[1] = tsp * rvm[1];
+        svp[2] = tsp * rvm[2];
       
-        dEr_vals[bond][i][0] += pref * first_vector_part[0] + 2.0 *
-          second_vector_part[0];
-        dEr_vals[bond][i][1] += pref * first_vector_part[1] + 2.0 *
-          second_vector_part[1];
-        dEr_vals[bond][i][2] += pref * first_vector_part[2] + 2.0 *
-          second_vector_part[2];
+        dEr_vals[bond][i][0] += pref * fvp[0] + 2.0 * svp[0];
+        dEr_vals[bond][i][1] += pref * fvp[1] + 2.0 * svp[1];
+        dEr_vals[bond][i][2] += pref * fvp[2] + 2.0 * svp[2];
 
-        first_scalar_part = 0.5 - bondrvmprod * bondvinvsq;
-        second_scalar_part = 1.0 - 1.5 * bondrvmprod * rvminvsq;
-        first_vector_part[0] = first_scalar_part * bondv[0] +
-          second_scalar_part * rvm[0];
-        first_vector_part[1] = first_scalar_part * bondv[1] +
-          second_scalar_part * rvm[1];
-        first_vector_part[2] = first_scalar_part * bondv[2] +
-          second_scalar_part * rvm[2];
+        fsp = 0.5 - bondrvmprod * bondvinvsq;
+        ssp = 1.0 - 1.5 * bondrvmprod * rvminvsq;
+        fvp[0] = fsp * bondv[0] + ssp * rvm[0];
+        fvp[1] = fsp * bondv[1] + ssp * rvm[1];
+        fvp[2] = fsp * bondv[2] + ssp * rvm[2];
 
-        dEr_vals[bond][atom1_pos][0] += pref * first_vector_part[0] -
-          second_vector_part[0];
-        dEr_vals[bond][atom1_pos][1] += pref * first_vector_part[1] -
-          second_vector_part[1];
-        dEr_vals[bond][atom1_pos][2] += pref * first_vector_part[2] -
-          second_vector_part[2];
+        dEr_vals[bond][atom1_pos][0] += pref * fvp[0] - svp[0];
+        dEr_vals[bond][atom1_pos][1] += pref * fvp[1] - svp[1];
+        dEr_vals[bond][atom1_pos][2] += pref * fvp[2] - svp[2];
 
-        first_scalar_part = 1.0 - first_scalar_part;
-        second_scalar_part = 2.0 - second_scalar_part;
-        first_vector_part[0] = first_scalar_part * bondv[0] -
-          second_scalar_part * rvm[0];
-        first_vector_part[1] = first_scalar_part * bondv[1] -
-          second_scalar_part * rvm[1];
-        first_vector_part[2] = first_scalar_part * bondv[2] -
-          second_scalar_part * rvm[2];
+        fsp = 1.0 - fsp;
+        ssp = 2.0 - ssp;
+        fvp[0] = fsp * bondv[0] - ssp * rvm[0];
+        fvp[1] = fsp * bondv[1] - ssp * rvm[1];
+        fvp[2] = fsp * bondv[2] - ssp * rvm[2];
 
-        dEr_vals[bond][atom2_pos][0] += pref * first_vector_part[0] -
-          second_vector_part[0];
-        dEr_vals[bond][atom2_pos][1] += pref * first_vector_part[1] -
-          second_vector_part[1];
-        dEr_vals[bond][atom2_pos][2] += pref * first_vector_part[2] -
-          second_vector_part[2];
+        dEr_vals[bond][atom2_pos][0] += pref * fvp[0] - svp[0];
+        dEr_vals[bond][atom2_pos][1] += pref * fvp[1] - svp[1];
+        dEr_vals[bond][atom2_pos][2] += pref * fvp[2] - svp[2];
       }
       Eparallel = MathExtra::dot3(E, bondv);
       if (printEfieldflag) fprintf(stderr, "%i %i %.14lf\n", global_atom1,
@@ -285,29 +267,9 @@ void FixFRespDsf::q_update_Efield_bond()
 
     if (bondflag) {
       r0 = force->bond->equilibrium_distance(neighbor->bondlist[bond][2]);
-      dr = bondvl - r0;
+      deltaq_update(molecule, atom1_t, atom2_t, Eparallel, bondvl - r0);
     }
-
-    //The cycle is done over all the atoms contained in the same molecule
-    //of the bond
-    for (i = 1; i <= mol_map[molecule - 1][0]; i++) {
-      global_center = mol_map[molecule - 1][i];
-      center = atom->map((int)global_center);
-      center_t = types[global_center - 1];
-      k = k_Efield[atom1_t][atom2_t][center_t];
-
-      //Charge variation are put in deltaq instead of atom->q in order
-      //to permit their communication to other processes
-      deltaq[center] += k * Eparallel;
-
-      if (bondflag) {
-        k = k_bond[atom1_t][atom2_t][center_t];
-
-        //Charge variation are put in deltaq instead of atom->q in order
-        //to permit their communication to other processes
-        deltaq[center] += k * dr;
-      }
-    }
+    else deltaq_update(molecule, atom1_t, atom2_t, Eparallel);
   }
 }
 

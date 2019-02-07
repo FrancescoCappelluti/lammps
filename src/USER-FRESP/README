@@ -8,10 +8,11 @@ produced by the charges the system has at the current timestep but by
 fixed "generating charges", that are parameters of the force field.
 This avoids the need of a self-consistent calculation or a Lagrangian approach
 that are common in other polarizable force fields, making simulations very fast.
-Electric field that influences charge value can be calculated in two ways:
-in the first case, Ewald summation technique is employed while, in the second,
-the relatively recent Fennell's modification of Wolf summation (aka DSF)
-technique by Fennell and Gezelter (2006).
+Electric field that influences charge value can be calculated in three ways:
+in the first case, Ewald summation technique is employed, in the second,
+the Fennell's modification of Wolf summation (aka DSF) technique by Fennell and 
+Gezelter (2006) while, in the last, a more recent modification (aka mDSF) 
+by Waibel et a. (2019).
 
 An article describing accurately this technique is about to be submitted.
 

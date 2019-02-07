@@ -129,6 +129,12 @@ class FixFResp : public Fix {
   double **kvecs; //vectors in k-space
   double *bondvskprod_vec, *xmkprod_vec, *Im_xm_vec, *Re_xm_vec, *tmp1, *tmp2;
   double *appo2Re_pref_vec, *appo2Im_pref_vec, *Im_prod_vec, *Re_prod_vec;
+  void deltaq_update(bigint molecule, int atom1_t, int atom2_t, \
+    double Eparallel, double dr);
+  void deltaq_update(bigint molecule, int atom1_t, int atom2_t, \
+    double Eparallel);
+  double beta; //needed by fix_fresp_mdsf
+  enum damp {NONE, EXP, SIN} dampflg;
 };
 
 }

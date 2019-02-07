@@ -913,6 +913,7 @@ void FixFResp::build_bond_Verlet_list(int bond, tagint atom1, tagint atom2)
 int FixFResp::count_total_bonds() {
   int i, j, n = 0;
   bigint atom1;
+
   for (i = 0; i < atom->nlocal; i++) {
     for (j = 0; j < atom->num_bond[i]; j++) {
       atom1 = atom->map(atom->bond_atom[i][j]);
@@ -921,4 +922,57 @@ int FixFResp::count_total_bonds() {
     }
   }
   return n;
+}
+
+/* ---------------------------------------------------------------------- 
+   deltaq array is updated
+   
+   ---------------------------------------------------------------------- */
+ 
+void FixFResp::deltaq_update(bigint molecule, int atom1_t, int atom2_t, 
+  double Eparallel) {
+  bigint i, global_center, center;
+  int center_t;
+  double k;
+  
+  //The cycle is done over all the atoms contained in the same molecule of
+  //the bond
+  #pragma vector
+  for (i = 1; i <= mol_map[molecule - 1][0]; i++) {
+    global_center = mol_map[molecule - 1][i];
+    center = atom->map((int)global_center);
+    center_t = types[global_center - 1];
+    k = k_Efield[atom1_t][atom2_t][center_t];
+    //Charge variation are put in deltaq instead of atom->q in order to
+    //permit their communication to other processes
+    deltaq[center] += k * Eparallel;
+  }
+}
+
+/* ---------------------------------------------------------------------- 
+   deltaq array is updated, also considering bond stretching contributions
+   ---------------------------------------------------------------------- */
+ 
+void FixFResp::deltaq_update(bigint molecule, int atom1_t, int atom2_t, 
+  double Eparallel, double dr) {
+  bigint i, global_center, center;
+  int center_t;
+  double k;
+  
+  //The cycle is done over all the atoms contained in the same molecule of
+  //the bond
+  #pragma vector
+  for (i = 1; i <= mol_map[molecule - 1][0]; i++) {
+    global_center = mol_map[molecule - 1][i];
+    center = atom->map((int)global_center);
+    center_t = types[global_center - 1];
+    k = k_Efield[atom1_t][atom2_t][center_t];
+    //Charge variation are put in deltaq instead of atom->q in order to
+    //permit their communication to other processes
+    deltaq[center] += k * Eparallel;
+    k = k_bond[atom1_t][atom2_t][center_t];
+    //Charge variation are put in deltaq instead of atom->q in order to
+    //permit their communication to other processes
+    deltaq[center] += k * dr;
+  }
 }
