@@ -38,7 +38,7 @@ using namespace FixConst;
 FixFRespMDsf::FixFRespMDsf(LAMMPS *lmp, int narg, char **arg) :
   FixFRespDsf(lmp, narg, arg)
 {
-  beta = 0.3;
+  beta = 0.1; //Best value found
 }
 
 /* ---------------------------------------------------------------------- */
