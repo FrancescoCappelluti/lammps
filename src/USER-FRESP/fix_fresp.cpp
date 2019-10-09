@@ -236,6 +236,13 @@ FixFResp::~FixFResp() {
 
 /* ---------------------------------------------------------------------- */
 
+void FixFResp::min_post_neighbor()
+{
+  post_neighbor();
+}
+
+/* ---------------------------------------------------------------------- */
+
 void FixFResp::init_list(int id, NeighList *ptr)
 {
   list = ptr;
@@ -290,9 +297,19 @@ int FixFResp::setmask()
 {
   int mask = 0;
   mask |= POST_NEIGHBOR;
+  mask |= MIN_POST_NEIGHBOR;
   mask |= PRE_FORCE;
+  mask |= MIN_PRE_FORCE;
   mask |= PRE_REVERSE;
+  mask |= MIN_PRE_REVERSE;
   return mask;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixFResp::min_pre_force(int vflag)
+{
+  pre_force(vflag);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -588,6 +605,13 @@ void FixFResp::q_update_improper()
     }
   }
 */}
+
+/* ---------------------------------------------------------------------- */
+
+void FixFResp::min_pre_reverse(int eflag, int vflag)
+{
+  pre_reverse(eflag, vflag);
+}
 
 /* ---------------------------------------------------------------------- */
 

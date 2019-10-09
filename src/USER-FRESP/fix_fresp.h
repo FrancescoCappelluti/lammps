@@ -31,14 +31,17 @@ class FixFResp : public Fix {
   //charges are updated in the new geometry and Efield projections derivatives 
   //are calculated
   virtual void pre_force(int) = 0;
+  void min_pre_force(int);
   //charges are set according to starting geometry
   virtual void setup_pre_force(int) = 0;
   //forces due to charge variation are added 
   virtual void pre_reverse(int, int) = 0;
+  void min_pre_reverse(int, int);
   void setup_pre_reverse(int, int);
   //after neighbor list are reconstructed, bond Verlet lists are scaled
   //(if necessary) and cleared
   virtual void post_neighbor() = 0;
+  void min_post_neighbor();
   void init_list(int, class NeighList *);
   void init();
   virtual double memory_usage() = 0;

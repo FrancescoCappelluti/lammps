@@ -43,3 +43,5 @@ Thumbs.db
 /Makefile
 /cmake_install.cmake
 /lmp
+/exe
+/lib/gpu/Makefile.linux
