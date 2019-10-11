@@ -138,6 +138,9 @@ class FixFResp : public Fix {
     double Eparallel);
   double beta; //needed by fix_fresp_mdsf
   enum damp {NONE, EXP, SIN} dampflg;
+  inline int sbmask(int j) const {
+    return j >> SBBITS & 3;
+  }
 };
 
 }

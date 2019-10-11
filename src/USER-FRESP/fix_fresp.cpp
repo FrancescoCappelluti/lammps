@@ -922,8 +922,8 @@ void FixFResp::build_bond_Verlet_list(int bond, tagint atom1, tagint atom2)
   //atoms from occasional Verlet list of atom1 are copied into dEr_indexes 
   //in order to use the latter in the cycle of q_update_Efield
   for (i = 1; i < total_size; i++) {
-    dEr_indexes[bond][i][0] = list->firstneigh[atom1][i - 1] & NEIGHMASK;
-    if (atom->tag[dEr_indexes[bond][i][0]] == atom->tag[atom2]) 
+    dEr_indexes[bond][i][0] = list->firstneigh[atom1][i - 1];
+    if (atom->tag[dEr_indexes[bond][i][0] & NEIGHMASK] == atom->tag[atom2])
       bond_extremes_pos[bond][1] = i - 1;
   }
   dEr_indexes[bond][total_size][0] = atom1;

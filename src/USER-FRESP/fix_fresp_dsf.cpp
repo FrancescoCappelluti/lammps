@@ -112,16 +112,16 @@ void FixFRespDsf::q_update_Efield_bond()
   bigint atom1, atom2, center, global_center, global_atom1, global_atom2;
   bigint molecule;
   int atom1_t, atom2_t, center_t, i, iplusone, bond, atom1_pos, atom2_pos;
-  int molflag;
   double bondv[3], E[3], Efield[3], Eparallel, erfc, rvmlsq, partialerfc;
   double grij, expm2, fsp, ssp, tsp;
   double minus_grijsq, ddamping[3];
-  double fvp[3], svp[3], bondrvmprod, damping;
+  double fvp[3], svp[3], bondrvmprod, damping, factor_coul;
   static double tgeospi = 2.0 * g_ewald / MathConst::MY_PIS;
   static double cutoff3sq = cutoff3 * cutoff3, cutoff1sq = cutoff1 * cutoff1;
   static double tgecuospi = tgeospi * g_ewald * g_ewald;
   static double f_shift = MathSpecial::expmsq(g_ewald * cutoff3) *
     ((MathSpecial::my_erfcx(g_ewald * cutoff3) / cutoff3) + tgeospi) / cutoff3;
+  double *special_coul = force->special_coul;
 
   //This cycle over all the atoms is absolutely needed
   if (Efieldflag && qsqsum > 0.0) {
@@ -170,10 +170,17 @@ void FixFRespDsf::q_update_Efield_bond()
       //in the Verlet list of bond
       for (i = 0; i < dEr_indexes[bond][0][0]; i++) {
         iplusone = i + 1;
-        center = dEr_indexes[bond][iplusone][0];
+        //Last element of dEr_indexes[bond][][0] is the index of atom1 and
+        //doesen't need a transformation through "& NEIGHMASK"
+        if (iplusone == dEr_indexes[bond][0][0]) {
+          factor_coul = 0.0;
+          center = dEr_indexes[bond][iplusone][0];
+        }
+        else {
+          factor_coul = special_coul[sbmask(dEr_indexes[bond][iplusone][0])];
+          center = dEr_indexes[bond][iplusone][0] & NEIGHMASK;
+        }
         global_center = atom->tag[center];
-        //molflag = 1 if center is in the same molecule, 0 otherwise        
-        molflag = atom->molecule[center] == molecule;
         rvm[0] = xm[0] - x[center][0];
         rvm[1] = xm[1] - x[center][1];
         rvm[2] = xm[2] - x[center][2];
@@ -182,10 +189,9 @@ void FixFRespDsf::q_update_Efield_bond()
 
         dEr_indexes[bond][iplusone][1] = (tagint)1;
 
-        if (rvmlsq > cutoff3sq || molflag) {
+        if (rvmlsq > cutoff3sq) {
           //In order not to cycle over this atom in pre_reverse function
-          if (i != atom1_pos && i != atom2_pos)
-            dEr_indexes[bond][iplusone][1] = (tagint)-1;
+          dEr_indexes[bond][iplusone][1] = (tagint)-1;
           continue;
         }
 
@@ -201,10 +207,10 @@ void FixFRespDsf::q_update_Efield_bond()
         partialerfc = MathSpecial::my_erfcx(grij);
         pref = expm2 * rvminv * (partialerfc * rvminv + tgeospi);
         pref -= f_shift;
-        pref *= q_gen * rvminv * bondvinv;
+        pref *= factor_coul * q_gen * rvminv * bondvinv;
         //Now pref is A * q_gen / (|rvm||rb|)
         fsp = 3.0 * bondrvmprod * rvminvsq;
-        tsp = q_gen * bondvinv * rvminvsq * bondrvmprod *
+        tsp = factor_coul * q_gen * bondvinv * rvminvsq * bondrvmprod *
           (f_shift * rvminv + expm2 * tgecuospi);
 
         if (rvml < cutoff2 && dampflag > 0) {
@@ -423,7 +429,7 @@ void FixFRespDsf::pre_force(int vflag)
 
 void FixFRespDsf::pre_reverse(int eflag, int vflag)
 {
-  int bond, i, j, atom1_t, atom2_t, center_t;
+  int bond, i, j, atom1_t, atom2_t, center_t, iplusone;
   tagint der_atom, global_atom1, global_atom2, global_center, center;
   bigint molecule;
   double alpha, tot_pot, alpha_tot_pot, v[6], deltaf[3];
@@ -473,8 +479,14 @@ void FixFRespDsf::pre_reverse(int eflag, int vflag)
         kb_tot_pot = kb * tot_pot;
       }
       for (i = 0; i < dEr_indexes[bond][0][0]; i++) {
-        if (dEr_indexes[bond][i + 1][1] == (tagint)-1) continue;
-        der_atom = dEr_indexes[bond][i + 1][0];
+        iplusone = i + 1;
+        if (dEr_indexes[bond][iplusone][1] == (tagint)-1) continue;
+        //Last element of dEr_indexes[bond][][0] is the index of atom1 and
+        //doesen't need a transformatin through "& NEIGHMASK"
+        if (iplusone == dEr_indexes[bond][0][0])
+          der_atom = dEr_indexes[bond][iplusone][0];
+        else
+          der_atom = dEr_indexes[bond][iplusone][0] & NEIGHMASK;
         //Minus sign is needed because F = -dU/dr and dEr_vals * alpha_tot_pot
         //is dU/dr
         deltaf[0] = -dEr_vals[bond][i][0] * alpha_tot_pot;
