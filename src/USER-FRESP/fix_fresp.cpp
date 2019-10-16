@@ -950,7 +950,6 @@ int FixFResp::count_total_bonds() {
 
 /* ---------------------------------------------------------------------- 
    deltaq array is updated
-   
    ---------------------------------------------------------------------- */
  
 void FixFResp::deltaq_update(bigint molecule, int atom1_t, int atom2_t, 
