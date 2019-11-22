@@ -52,7 +52,8 @@ class FixFResp : public Fix {
 
  protected:
   //flags that tell if FRESP is active
-  bool bondflag, angleflag, dihedralflag, improperflag, Efieldflag;
+  bool bondflag, angleflag, dihedralflag, improperflag, phi0improperflag;
+  bool  Efieldflag;
   int natypes; //# of FRESP atom types
   void read_file(char*);
   void read_file_types(char*);
@@ -77,6 +78,9 @@ class FixFResp : public Fix {
   //atom, index 3 is type of third atom, index 4 is type of fourth atom and
   //index 5 is type of center
   double *****k_improper;
+  //index 1 is type of first atom of the improper, index 2 is type of second
+  //atom, index 3 is type of third atom and index 4 is type of fourth atom
+  double ****phi0_improper;
   //index 1 is type of first atom of the bond, index 2 is type of second atom
   //and index 3 is type of center
   double ***k_Efield; 
@@ -89,14 +93,25 @@ class FixFResp : public Fix {
   void q_update_improper();
   virtual void q_update_Efield_bond() = 0;
   class NeighList *list;
-  int nbond_old;
-  //index 1 is bond index in bondlist, index 2 is atom index in Verlet list
-  //union for middle bond point and index 3 is the component of
+  int nbond_old, nangle_old, nimproper_old;
+  //index 1 is bond index according to nbond_old, index 2 is atom index in
+  //Verlet list union for middle bond point and index 3 is the component of
   //the vector derivative
   double ***dEr_vals;
   //index 1 is bond index in bondlist, index 2 is atom index in Verlet list
   //union for middle bond point
   tagint ***dEr_indexes;
+  //index 1 is bond index in neighbor->bondlist, index 2 is the component
+  //of the vector derivative
+  double **db_vals;
+  //index 1 is angle index in neighbor->anglelist, index 2 is is the
+  //index of the atom in the angle definition (going therefore from 0 to 2)
+  //and index 3 is the component of the vector derivative
+  double ***da_vals;
+  //index 1 is improper index in neighbor->improperlist, index 2 is is the
+  //index of the atom in the improper definition (going therefore from 0 to 3)
+  //and index 3 is the component of the vector derivative
+  double ***dimp_vals;
   int **bond_extremes_pos;
   double q2, qsum, qsqsum, scale, triclinic, accuracy, g_ewald;
   double unitk[3]; 
@@ -132,10 +147,14 @@ class FixFResp : public Fix {
   double **kvecs; //vectors in k-space
   double *bondvskprod_vec, *xmkprod_vec, *Im_xm_vec, *Re_xm_vec, *tmp1, *tmp2;
   double *appo2Re_pref_vec, *appo2Im_pref_vec, *Im_prod_vec, *Re_prod_vec;
-  void deltaq_update(bigint molecule, int atom1_t, int atom2_t, \
-    double Eparallel, double dr);
-  void deltaq_update(bigint molecule, int atom1_t, int atom2_t, \
+  void deltaq_update_Efield(bigint molecule, int atom1_t, int atom2_t, \
     double Eparallel);
+  void deltaq_update_bond(bigint molecule, int atom1_t, int atom2_t, \
+    double dr);
+  void deltaq_update_angle(bigint molecule, int atom1_t, int atom2_t, \
+  int atom3_t, double da);
+  void deltaq_update_improper(bigint molecule, int atom1_t, int atom2_t, \
+  int atom3_t, int atom4_t, double absim);
   double beta; //needed by fix_fresp_mdsf
   enum damp {NONE, EXP, SIN} dampflg;
   inline int sbmask(int j) const {

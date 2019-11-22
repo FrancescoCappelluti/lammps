@@ -42,8 +42,6 @@
 using namespace LAMMPS_NS;
 using namespace FixConst;
 
-#define MAXLINE 1024
-#define SMALL     0.001
 #define EWALD_SMALL 0.00001
 #define TWO_OVER_SQPI 1.128379167
 
@@ -1067,10 +1065,10 @@ void FixFRespEwald::ewald_setup()
     kmax = MAX(kmax,kzmax);
     kmax3d = 4*kmax*kmax*kmax + 6*kmax*kmax + 3*kmax;
    
-    double gsqxmx = unitk[0]*unitk[0]*kxmax*kxmax;
+    double wmaotsetung = unitk[0]*unitk[0]*kxmax*kxmax;
     double gsqymx = unitk[1]*unitk[1]*kymax*kymax;
     double gsqzmx = unitk[2]*unitk[2]*kzmax*kzmax;
-    gsqmx = MAX(gsqxmx,gsqymx);
+    gsqmx = MAX(wmaotsetung,gsqymx);
     gsqmx = MAX(gsqmx,gsqzmx);
    
     kxmax_orig = kxmax;
@@ -1104,10 +1102,10 @@ void FixFRespEwald::ewald_setup()
     kmax = MAX(kmax,kzmax);
     kmax3d = 4*kmax*kmax*kmax + 6*kmax*kmax + 3*kmax;
 
-    double gsqxmx = unitk[0]*unitk[0]*kxmax*kxmax;
+    double wmaotsetung = unitk[0]*unitk[0]*kxmax*kxmax;
     double gsqymx = unitk[1]*unitk[1]*kymax*kymax;
     double gsqzmx = unitk[2]*unitk[2]*kzmax*kzmax;
-    gsqmx = MAX(gsqxmx,gsqymx);
+    gsqmx = MAX(wmaotsetung,gsqymx);
     gsqmx = MAX(gsqmx,gsqzmx);
   }
 
@@ -1198,11 +1196,11 @@ void FixFRespEwald::ewald_structure_factor()
 
 void FixFRespEwald::q_update_Efield_bond()
 {
-  double xm[3], **x = atom->x, k, rvml, rvminv, rvminvsq, rvminvcu;
-  double rvm[3], rvmvs[3], r0, bondvl, bondvinv; 
+  double xm[3], **x = atom->x, rvml, rvminv, rvminvsq, rvminvcu;
+  double rvm[3], rvmvs[3], r0, bondvl, bondvinv, wmarx; 
   bigint atom1, atom2, center, global_center, global_atom1, global_atom2;
   bigint molecule;
-  int atom1_t, atom2_t, center_t, i, bond, atom1_pos, atom2_pos, molflag;
+  int atom1_t, atom2_t, i, bond, atom1_pos, atom2_pos, molflag;
   double bondv[3], bondvs[3], E[3], E_R[3], E_K[3], Eparallel, ra1[3], ra2[3];
   double grij, expm2, Im_prod, Re_prod, Im_xm, Re_xm, bondkprod, bondvskprod;
   double first_first_half[3], first_second_half[3], erfc, rvmlsq;
@@ -1235,6 +1233,7 @@ void FixFRespEwald::q_update_Efield_bond()
     #else
     bondvl = MathExtra::len3(bondv);
     #endif
+    bondvinv = 1.0 / bondvl;
 
     //This check is here because, if false, bondv has already been calculated
     //and can be used for charge variation due to bond stretching
@@ -1242,7 +1241,6 @@ void FixFRespEwald::q_update_Efield_bond()
 
       double E_R_perbond = 0.0, E_B_perbond = 0.0, E_K_perbond = 0.0;
 
-      bondvinv = 1.0 / bondvl;
       #ifdef __INTEL_MKL__
       cblas_dcopy(3, x[atom1], 1, xm, 1);
       vdAdd(3, x[atom2], xm, xm);
@@ -1531,16 +1529,25 @@ void FixFRespEwald::q_update_Efield_bond()
     //Calculate component of E along bond
     Eparallel = MathExtra::dot3(E, bondvs);
 
-    if (printEfieldflag) fprintf(stderr, "%i %i %.14lf %.14lf %.14lf %.14lf\n",
-      global_atom1, global_atom2, E_R_perbond, E_B_perbond, E_K_perbond,
-      Eparallel);
+    if (printEfieldflag) fprintf(stderr, BIGINT_FORMAT " " BIGINT_FORMAT
+      " %.14lf %.14lf %.14lf %.14lf\n", global_atom1, global_atom2, E_R_perbond,
+      E_B_perbond, E_K_perbond, Eparallel);
+
+      deltaq_update_Efield(molecule, atom1_t, atom2_t, Eparallel);
     }
 
     if (bondflag) {
       r0 = force->bond->equilibrium_distance(neighbor->bondlist[bond][2]);
-      deltaq_update(molecule, atom1_t, atom2_t, Eparallel, bondvl - r0);
+      //deltaq_update(molecule, atom1_t, atom2_t, Eparallel, bondvl - r0);
+      wmarx = bondvl - r0;
+
+      db_vals[bond][0] = bondv[0] * bondvinv;
+      db_vals[bond][1] = bondv[1] * bondvinv;
+      db_vals[bond][2] = bondv[2] * bondvinv;
+
+      deltaq_update_bond(molecule, atom1_t, atom2_t, wmarx);
     }
-    else deltaq_update(molecule, atom1_t, atom2_t, Eparallel);
+    //else deltaq_update(molecule, atom1_t, atom2_t, Eparallel);
   }
 }
 
@@ -1595,8 +1602,8 @@ void FixFRespEwald::setup_pre_force(int vflag)
     for (j = 0; j < atom->num_bond[i]; j++) {
       atom1 = atom->map(atom->bond_atom[i][j]);
       atom1 = domain->closest_image(i, (int)atom1);
-      if (force->newton_bond || i < atom1) build_bond_Verlet_list(bond++, i,
-        atom1);
+      if (force->newton_bond || i < atom1)
+        build_bond_Verlet_list(bond++, i, atom1);
     }
   }
 
@@ -1675,7 +1682,7 @@ void FixFRespEwald::pre_force(int vflag)
   update->eflag_atom = update->eflag_global = update->ntimestep;
   pe->addstep(update->ntimestep + 1);
 
-  //deltaq, erfc_erf_arr and already_cycled arrays are cleared
+  //deltaq array is cleared
   for (i = 0; i < atom->nmax; i++) deltaq[i] = 0.0;
 
   ewald_structure_factor();
@@ -1705,9 +1712,10 @@ void FixFRespEwald::pre_force(int vflag)
 void FixFRespEwald::pre_reverse(int eflag, int vflag)
 {
   int bond, i, j, k, atom1_t, atom2_t, center_t;
-  tagint der_atom, global_atom1, global_atom2, global_center, center;
+  tagint der_atom, global_atom1, global_atom2;
+  tagint global_center, center;
   bigint molecule;
-  double alpha, Re_xi, Im_xi, arg, alpha_tot_pot, alpha_real_space_pot;
+  double alpha, Re_xi, Im_xi, arg, alpha_tot_pot;
   static const double prefac =  2.0 * force->kspace->g_ewald /
     MathConst::MY_PIS;
   double v[6], unwrap[3], freal[3], premul[3], gen_q, partial[3];
@@ -1729,121 +1737,123 @@ void FixFRespEwald::pre_reverse(int eflag, int vflag)
   comm->reverse_comm_fix(this);
   comm->forward_comm_fix(this);
 
-  //appo3 is filled with zeros
-  for (k = 0; k < kcount; k++) appo3[k][0] = appo3[k][1] = appo3[k][2] =
-    appo3[k][3] = appo3[k][4] = appo3[k][5] = 0.0;
+  if (Efieldflag || bondflag) {
+    //appo3 is filled with zeros
+    for (k = 0; k < kcount; k++) appo3[k][0] = appo3[k][1] = appo3[k][2] =
+      appo3[k][3] = appo3[k][4] = appo3[k][5] = 0.0;
 
-  for (bond = 0; bond < nbond_old; bond++) {
-    molecule = atom->molecule[dEr_indexes[bond][0][1]];
-    global_atom1 = atom->tag[dEr_indexes[bond][0][1]];
-    global_atom2 = atom->tag[dEr_indexes[bond][0][2]];
-    atom1_t = types[global_atom1 - 1];
-    atom2_t = types[global_atom2 - 1];
-    if (bondflag) {
-      atom1 = dEr_indexes[bond][0][1];
-      atom2 = dEr_indexes[bond][0][2];
-      atom1_pos = bond_extremes_pos[bond][0];
-      atom2_pos = bond_extremes_pos[bond][1];
-      bondv[0] = atom->x[atom1][0] - atom->x[atom2][0];
-      bondv[1] = atom->x[atom1][1] - atom->x[atom2][1];
-      bondv[2] = atom->x[atom1][2] - atom->x[atom2][2];
-      #ifdef __INTEL_MKL__
-      bondvinv = 1.0 / cblas_dnrm2(3, bondv, 1);
-      #else
-      bondvinv = 1.0 / MathExtra::len3(bondv);
-      #endif
-    }
-    for (i = 1; i <= mol_map[molecule - 1][0]; i++) {
-      global_center = mol_map[molecule - 1][i];
-      center = atom->map(global_center);
-      center_t = types[global_center - 1];
-      alpha = k_Efield[atom1_t][atom2_t][center_t];
-      alpha_tot_pot = alpha * (2.0 * (force->pair->eatomcoul[center] +
-        force->kspace->eatom[center]) / atom->q[center]);
-      //Virial calculation still not correctly implemented!!
-      //alpha_real_space_pot = alpha * (erfc_erf_arr[center] - 
-      //prefac * atom->q[center]);
-      for (j = 0; j < dEr_indexes[bond][0][0]; j++) {
-        if (dEr_indexes[bond][j + 1][1] == (tagint)-1) continue;
-        der_atom = dEr_indexes[bond][j + 1][0];
-        //position of der_atom is put in unwrap
+    for (bond = 0; bond < nbond_old; bond++) {
+      molecule = atom->molecule[dEr_indexes[bond][0][1]];
+      global_atom1 = atom->tag[dEr_indexes[bond][0][1]];
+      global_atom2 = atom->tag[dEr_indexes[bond][0][2]];
+      atom1_t = types[global_atom1 - 1];
+      atom2_t = types[global_atom2 - 1];
+      if (bondflag) {
+        atom1 = dEr_indexes[bond][0][1];
+        atom2 = dEr_indexes[bond][0][2];
+        atom1_pos = bond_extremes_pos[bond][0];
+        atom2_pos = bond_extremes_pos[bond][1];
+        bondv[0] = atom->x[atom1][0] - atom->x[atom2][0];
+        bondv[1] = atom->x[atom1][1] - atom->x[atom2][1];
+        bondv[2] = atom->x[atom1][2] - atom->x[atom2][2];
+        #ifdef __INTEL_MKL__
+        bondvinv = 1.0 / cblas_dnrm2(3, bondv, 1);
+        #else
+        bondvinv = 1.0 / MathExtra::len3(bondv);
+        #endif
+      }
+      for (i = 1; i <= mol_map[molecule - 1][0]; i++) {
+        global_center = mol_map[molecule - 1][i];
+        center = atom->map(global_center);
+        center_t = types[global_center - 1];
+        alpha = k_Efield[atom1_t][atom2_t][center_t];
+        alpha_tot_pot = alpha * (2.0 * (force->pair->eatomcoul[center] +
+          force->kspace->eatom[center]) / atom->q[center]);
         //Virial calculation still not correctly implemented!!
-        //domain->unmap(atom->x[der_atom], atom->image[der_atom], unwrap);
+        //alpha_real_space_pot = alpha * (erfc_erf_arr[center] - 
+        //prefac * atom->q[center]);
+        for (j = 0; j < dEr_indexes[bond][0][0]; j++) {
+          if (dEr_indexes[bond][j + 1][1] == (tagint)-1) continue;
+          der_atom = dEr_indexes[bond][j + 1][0];
+          //position of der_atom is put in unwrap
+          //Virial calculation still not correctly implemented!!
+          //domain->unmap(atom->x[der_atom], atom->image[der_atom], unwrap);
 
-        //subtraction is because deltaf term is dU/dr and force is -dU/dr
-        atom->f[der_atom][0] -= dEr_vals[bond][j][0] * alpha_tot_pot;
-        atom->f[der_atom][1] -= dEr_vals[bond][j][1] * alpha_tot_pot;
-        atom->f[der_atom][2] -= dEr_vals[bond][j][2] * alpha_tot_pot;
+          //subtraction is because deltaf term is dU/dr and force is -dU/dr
+          atom->f[der_atom][0] -= dEr_vals[bond][j][0] * alpha_tot_pot;
+          atom->f[der_atom][1] -= dEr_vals[bond][j][1] * alpha_tot_pot;
+          atom->f[der_atom][2] -= dEr_vals[bond][j][2] * alpha_tot_pot;
 
-        if (bondflag && (j == atom1_pos || j == atom2_pos)) {
-          kb = k_bond[atom1_t][atom2_t][center_t];
-          //Force contribution coming from bond stretching is reversed
-          //if atom2 is considered
-          if (j == atom2_pos) kb *= -1.0;
-          kb_tot_pot = kb * (2.0 * (force->pair->eatomcoul[center] +
-            force->kspace->eatom[center]) / atom->q[center]);
-          atom->f[der_atom][0] -= bondv[0] * kb_tot_pot * bondvinv;
-          atom->f[der_atom][1] -= bondv[1] * kb_tot_pot * bondvinv;
-          atom->f[der_atom][2] -= bondv[2] * kb_tot_pot * bondvinv;
+          if (bondflag && (j == atom1_pos || j == atom2_pos)) {
+            kb = k_bond[atom1_t][atom2_t][center_t];
+            //Force contribution coming from bond stretching is reversed
+            //if atom2 is considered
+            if (j == atom2_pos) kb *= -1.0;
+            kb_tot_pot = kb * (2.0 * (force->pair->eatomcoul[center] +
+              force->kspace->eatom[center]) / atom->q[center]);
+            atom->f[der_atom][0] -= bondv[0] * kb_tot_pot * bondvinv;
+            atom->f[der_atom][1] -= bondv[1] * kb_tot_pot * bondvinv;
+            atom->f[der_atom][2] -= bondv[2] * kb_tot_pot * bondvinv;
+          }
+
+          //Virial calculation still not correctly implemented!!
+          /*if (evflag) {
+            freal[0] = dEr_vals[bond][j][0] * alpha_real_space_pot;
+            freal[1] = dEr_vals[bond][j][1] * alpha_real_space_pot;
+            freal[2] = dEr_vals[bond][j][2] * alpha_real_space_pot;
+
+            v[0] = freal[0] * unwrap[0];
+            v[1] = freal[1] * unwrap[1];
+            v[2] = freal[2] * unwrap[2];
+            v[3] = freal[0] * unwrap[1];
+            v[4] = freal[0] * unwrap[2];
+            v[5] = freal[1] * unwrap[2];
+            v_tally(der_atom, v);
+          }*/
         }
-
-        //Virial calculation still not correctly implemented!!
-        /*if (evflag) {
-          freal[0] = dEr_vals[bond][j][0] * alpha_real_space_pot;
-          freal[1] = dEr_vals[bond][j][1] * alpha_real_space_pot;
-          freal[2] = dEr_vals[bond][j][2] * alpha_real_space_pot;
-
-          v[0] = freal[0] * unwrap[0];
-          v[1] = freal[1] * unwrap[1];
-          v[2] = freal[2] * unwrap[2];
-          v[3] = freal[0] * unwrap[1];
-          v[4] = freal[0] * unwrap[2];
-          v[5] = freal[1] * unwrap[2];
-          v_tally(der_atom, v);
-        }*/
+        #ifdef __INTEL_MKL__
+        mkl_domatadd('r', 'n', 'n', kcount, 6, alpha_tot_pot, &appo2[bond][0][0],
+          6, 1.0, &appo3[0][0], 6, &appo3[0][0], 6);
+        #else
+        for (k = 0; k < kcount; k++) {
+          appo3[k][0] += alpha_tot_pot * appo2[bond][k][0];
+          appo3[k][1] += alpha_tot_pot * appo2[bond][k][1];
+          appo3[k][2] += alpha_tot_pot * appo2[bond][k][2];
+          appo3[k][3] += alpha_tot_pot * appo2[bond][k][3];
+          appo3[k][4] += alpha_tot_pot * appo2[bond][k][4];
+          appo3[k][5] += alpha_tot_pot * appo2[bond][k][5];
+        }
+        #endif
       }
-      #ifdef __INTEL_MKL__
-      mkl_domatadd('r', 'n', 'n', kcount, 6, alpha_tot_pot, &appo2[bond][0][0],
-        6, 1.0, &appo3[0][0], 6, &appo3[0][0], 6);
-      #else
+    }
+
+    for (k = 0; k < kcount; k++) MPI_Allreduce(MPI_IN_PLACE, appo3[k], 6,
+      MPI_DOUBLE, MPI_SUM, world);
+
+    for (i = 0; i < atom->nlocal; i++) {
+      global_center = atom->tag[i] - 1;
+      gen_q = qgen[types[global_center]];
+      premul[0] = atom->x[i][0] * unitk[0];
+      premul[1] = atom->x[i][1] * unitk[1];
+      premul[2] = atom->x[i][2] * unitk[2];
+      MathExtra::zero3(partial);
       for (k = 0; k < kcount; k++) {
-        appo3[k][0] += alpha_tot_pot * appo2[bond][k][0];
-        appo3[k][1] += alpha_tot_pot * appo2[bond][k][1];
-        appo3[k][2] += alpha_tot_pot * appo2[bond][k][2];
-        appo3[k][3] += alpha_tot_pot * appo2[bond][k][3];
-        appo3[k][4] += alpha_tot_pot * appo2[bond][k][4];
-        appo3[k][5] += alpha_tot_pot * appo2[bond][k][5];
+        arg = kxvecs[k] * premul[0] + kyvecs[k] * premul[1] + kzvecs[k] *
+        premul[2];
+        #ifdef __INTEL_MKL__
+        vdSinCos(1, &arg, &Im_xi, &Re_xi);
+        #else
+        Re_xi = cos(arg);
+        Im_xi = sin(arg);
+        #endif
+        partial[0] += appo3[k][0] * Re_xi + appo3[k][3] * Im_xi;
+        partial[1] += appo3[k][1] * Re_xi + appo3[k][4] * Im_xi;
+        partial[2] += appo3[k][2] * Re_xi + appo3[k][5] * Im_xi;
       }
-      #endif
+      atom->f[i][0] += gen_q * partial[0];
+      atom->f[i][1] += gen_q * partial[1];
+      atom->f[i][2] += gen_q * partial[2];
     }
-  }
-
-  for (k = 0; k < kcount; k++) MPI_Allreduce(MPI_IN_PLACE, appo3[k], 6,
-    MPI_DOUBLE, MPI_SUM, world);
-
-  for (i = 0; i < atom->nlocal; i++) {
-    global_center = atom->tag[i] - 1;
-    gen_q = qgen[types[global_center]];
-    premul[0] = atom->x[i][0] * unitk[0];
-    premul[1] = atom->x[i][1] * unitk[1];
-    premul[2] = atom->x[i][2] * unitk[2];
-    MathExtra::zero3(partial);
-    for (k = 0; k < kcount; k++) {
-      arg = kxvecs[k] * premul[0] + kyvecs[k] * premul[1] + kzvecs[k] *
-      premul[2];
-      #ifdef __INTEL_MKL__
-      vdSinCos(1, &arg, &Im_xi, &Re_xi);
-      #else
-      Re_xi = cos(arg);
-      Im_xi = sin(arg);
-      #endif
-      partial[0] += appo3[k][0] * Re_xi + appo3[k][3] * Im_xi;
-      partial[1] += appo3[k][1] * Re_xi + appo3[k][4] * Im_xi;
-      partial[2] += appo3[k][2] * Re_xi + appo3[k][5] * Im_xi;
-    }
-    atom->f[i][0] += gen_q * partial[0];
-    atom->f[i][1] += gen_q * partial[1];
-    atom->f[i][2] += gen_q * partial[2];
   }
 }
 
@@ -1857,25 +1867,32 @@ double FixFRespEwald::memory_usage()
   double bytes = 0.0;
   bytes += atom->natoms * sizeof(int); //types
   bytes += nmolecules * (average_mol_size + 1) * sizeof(bigint); //mol_map
-  bytes += natypes * natypes * natypes * sizeof(double); //k_bond
-  bytes += natypes * natypes * natypes * natypes * sizeof(double); //k_angle
-  bytes += natypes * natypes * natypes * natypes * natypes *
-    sizeof(double); //k_dihedral
-  bytes += natypes * natypes * natypes * natypes * natypes *
-    sizeof(double); //k_improper
-  bytes += natypes * natypes * natypes * sizeof(double); //k_Efield
   bytes += 2 * natypes * sizeof(double); //q0 and qgen
   bytes += 1 * atom->nmax * sizeof(double); //deltaq
-  bytes += kcount * 6 * sizeof(double); //appo3
-  bytes += nbond_old * 6 * kcount * sizeof(double); //appo2
-  //dEr_vals, dEr_indexes and distances
-  for (bond = 0; bond < nbond_old; bond ++)
-    bytes += dEr_indexes[bond][0][0] * (2 * (sizeof(tagint) + sizeof(bigint) + \
-    3 * sizeof(double))) + 3 * sizeof(bigint);
-  #ifdef __INTEL_MKL__
-  //arrays used for BLAS functions in reciprocal space part of q_update_Efield
-  bytes += 10 * kcount * sizeof(double);
-  #endif
+  if (angleflag) bytes += natypes * natypes * natypes * natypes *
+    sizeof(double); //k_angle
+  if (dihedralflag) bytes += natypes * natypes * natypes * natypes * natypes *
+    sizeof(double); //k_dihedral
+  if (improperflag) bytes += natypes * natypes * natypes * natypes * natypes *
+    sizeof(double); //k_improper
+  if (Efieldflag || bondflag) {
+    bytes += kcount * 6 * sizeof(double); //appo3
+    bytes += nbond_old * 6 * kcount * sizeof(double); //appo2
+    //dEr_vals, dEr_indexes and distances
+    for (bond = 0; bond < nbond_old; bond ++)
+      bytes += dEr_indexes[bond][0][0] * (2 * (sizeof(tagint) + sizeof(bigint)
+      + 3 * sizeof(double))) + 3 * sizeof(bigint);
+    #ifdef __INTEL_MKL__
+    //arrays used for BLAS functions in reciprocal space part of q_update_Efield
+    bytes += 10 * kcount * sizeof(double);
+    #endif
+    //k_Efield
+    if (Efieldflag) bytes += natypes * natypes * natypes * sizeof(double);
+    if (bondflag) {
+      bytes += nbond_old * sizeof(double); //db_vals
+      bytes += natypes * natypes * natypes * sizeof(double); //k_bond
+    }
+  }
   return bytes;
 }
 
@@ -1892,5 +1909,6 @@ inline double FixFRespEwald::Efield_damping(int dampflag, double r,
       MathConst::MY_PI * (r - cutoff1) / (cutoff2 - cutoff1)), 2);
     else return 0.0;
   }
+  return 0.0;
 }
 

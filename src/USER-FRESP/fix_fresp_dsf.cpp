@@ -40,10 +40,7 @@
 using namespace LAMMPS_NS;
 using namespace FixConst;
 
-#define MAXLINE 1024
 #define SMALL     0.001
-
-//enum damp {NONE, EXP, SIN} dampflg;
 
 /* ---------------------------------------------------------------------- */
 
@@ -107,14 +104,14 @@ FixFRespDsf::~FixFRespDsf()
 
 void FixFRespDsf::q_update_Efield_bond()
 {
-  double xm[3], **x = atom->x, k, rvml, rvminv, rvminvsq, rvm[3], r0;
+  double xm[3], **x = atom->x, rvml, rvminv, rvminvsq, rvm[3], r0;
   double  bondvl, bondvinv, bondvinvsq, pref, q_gen; 
   bigint atom1, atom2, center, global_center, global_atom1, global_atom2;
   bigint molecule;
-  int atom1_t, atom2_t, center_t, i, iplusone, bond, atom1_pos, atom2_pos;
-  double bondv[3], E[3], Efield[3], Eparallel, erfc, rvmlsq, partialerfc;
+  int atom1_t, atom2_t, i, iplusone, bond, atom1_pos, atom2_pos;
+  double bondv[3], wstalin, E[3], Efield[3], Eparallel, rvmlsq, partialerfc;
   double grij, expm2, fsp, ssp, tsp;
-  double minus_grijsq, ddamping[3];
+  double ddamping[3];
   double fvp[3], svp[3], bondrvmprod, damping, factor_coul;
   static double tgeospi = 2.0 * g_ewald / MathConst::MY_PIS;
   static double cutoff3sq = cutoff3 * cutoff3, cutoff1sq = cutoff1 * cutoff1;
@@ -133,6 +130,9 @@ void FixFRespDsf::q_update_Efield_bond()
     }
   }
 
+  //Using bonds stored in dEr_indexes instead of nbondlist, cycle is
+  //performed over all bonds, even those that are constrained by SHAKE. Even
+  //bond stretching charge contribution is therefore accounted for.
   for (bond = 0; bond < nbond_old; bond++) {
     //E is initialized as {0., 0., 0.}
     MathExtra::zero3(E);
@@ -151,12 +151,12 @@ void FixFRespDsf::q_update_Efield_bond()
     bondv[1] = x[atom1][1] - x[atom2][1];
     bondv[2] = x[atom1][2] - x[atom2][2];
     bondvl = MathExtra::len3(bondv);
+    bondvinv = 1.0 / bondvl;
 
     //This check is here because, if false, bondv has already been calculated
     //and can be used for charge variation due to bond stretching
     //qsqsum is that declared in constructor, need to correct
     if (Efieldflag && qsqsum > 0.0) {
-      bondvinv = 1.0 / bondvl;
       bondvinvsq = bondvinv * bondvinv;
       xm[0] = (x[atom1][0] + x[atom2][0]) * 0.5;
       xm[1] = (x[atom1][1] + x[atom2][1]) * 0.5;
@@ -267,15 +267,25 @@ void FixFRespDsf::q_update_Efield_bond()
         dEr_vals[bond][atom2_pos][2] += pref * fvp[2] - svp[2];
       }
       Eparallel = MathExtra::dot3(E, bondv);
-      if (printEfieldflag) fprintf(stderr, "%i %i %.14lf\n", global_atom1,
-        global_atom2, Eparallel);
+
+      if (printEfieldflag) fprintf(stderr, BIGINT_FORMAT " " BIGINT_FORMAT
+      " %.14lf\n", global_atom1, global_atom2, Eparallel);
+
+      deltaq_update_Efield(molecule, atom1_t, atom2_t, Eparallel);
     }
 
     if (bondflag) {
       r0 = force->bond->equilibrium_distance(neighbor->bondlist[bond][2]);
-      deltaq_update(molecule, atom1_t, atom2_t, Eparallel, bondvl - r0);
+      //deltaq_update(molecule, atom1_t, atom2_t, Eparallel, bondvl - r0);
+      wstalin = bondvl - r0;
+
+      db_vals[bond][0] = bondv[0] * bondvinv;
+      db_vals[bond][1] = bondv[1] * bondvinv;
+      db_vals[bond][2] = bondv[2] * bondvinv;
+
+      deltaq_update_bond(molecule, atom1_t, atom2_t, wstalin);
     }
-    else deltaq_update(molecule, atom1_t, atom2_t, Eparallel);
+    //else deltaq_update(molecule, atom1_t, atom2_t, Eparallel);
   }
 }
 
@@ -286,47 +296,63 @@ void FixFRespDsf::setup_pre_force(int vflag)
   int i, j, bond = 0;
   bigint atom1;
 
-  //using count_total_bonds(), bonds "freezed" by SHAKE are considered too,
-  //otherwise than using nbondlist
-  nbond_old = count_total_bonds();
-
   nmax = atom->nmax;
   memory->create(deltaq, nmax, "fresp:deltaq");
 
-  //an array of nbond double** is allocated in order to store the values of
-  //derivatives of E_R * bond unit vector
-  //an array of nbond tagint* is allocated in order to store the indexes of
-  //atoms wrt the derivatives of dEr_vals are done
-  dEr_vals = (double***) calloc(nbond_old, sizeof(double**));
-  if (dEr_vals == NULL) {
-    char str[128];
-    sprintf(str,"Failed to allocate " BIGINT_FORMAT " bytes for array \
-      fresp:dEr_vals", nbond_old * sizeof(double**));
-    error->one(FLERR,str);
-  }
-  dEr_indexes = (tagint***) calloc(nbond_old, sizeof(tagint**));
-  if (dEr_indexes == NULL) {
-    char str[128];
-    sprintf(str,"Failed to allocate " BIGINT_FORMAT " bytes for array \
-      fresp:dEr_indexes", nbond_old * sizeof(double**));
-    error->one(FLERR,str);
-  }
-  memory->create(bond_extremes_pos, nbond_old, 2, "fresp:bond_extremes_pos");
+  if (Efieldflag || bondflag) {
+    //using count_total_bonds(), bonds "freezed" by SHAKE are considered too,
+    //otherwise than using nbondlist
+    nbond_old = count_total_bonds();
 
-  for (i = 0; i < nbond_old; i++) {
-    dEr_vals[i] = NULL;
-    dEr_indexes[i] = NULL;
+    //an array of nbond double** is allocated in order to store the values of
+    //derivatives of E_R * bond unit vector
+    //an array of nbond tagint* is allocated in order to store the indexes of
+    //atoms wrt the derivatives of dEr_vals are done
+    dEr_vals = (double***) calloc(nbond_old, sizeof(double**));
+    if (dEr_vals == NULL) {
+      char wengels[128];
+      sprintf(wengels,"Failed to allocate " BIGINT_FORMAT " bytes for array \
+        fresp:dEr_vals", nbond_old * sizeof(double**));
+      error->one(FLERR,wengels);
+    }
+    dEr_indexes = (tagint***) calloc(nbond_old, sizeof(tagint**));
+    if (dEr_indexes == NULL) {
+      char str[128];
+      sprintf(str,"Failed to allocate " BIGINT_FORMAT " bytes for array \
+        fresp:dEr_indexes", nbond_old * sizeof(double**));
+      error->one(FLERR,str);
+    }
+    memory->create(bond_extremes_pos, nbond_old, 2, "fresp:bond_extremes_pos");
+
+    for (i = 0; i < nbond_old; i++) {
+      dEr_vals[i] = NULL;
+      dEr_indexes[i] = NULL;
+    }
+
+    if (bondflag) memory->create(db_vals, nbond_old, 3, "fresp:db_vals");
+  }
+
+  if (angleflag) {
+    nangle_old = neighbor->nanglelist;
+    memory->create(da_vals, nangle_old, 4, 3, "fresp:da_vals");
+  }
+
+  if (improperflag) {
+    nimproper_old = neighbor->nimproperlist;
+    memory->create(dimp_vals, nimproper_old, 4, 3, "fresp:dimp_vals");
   }
 
   //Build new neighbor lists needed by F-RESP
   neighbor->build_one(list);
 
-  for (i = 0; i < atom->nlocal; i++) {
-    for (j = 0; j < atom->num_bond[i]; j++) {
-      atom1 = atom->map(atom->bond_atom[i][j]);
-      atom1 = domain->closest_image(i, (int)atom1);
-      if (force->newton_bond || i < atom1)
-        build_bond_Verlet_list(bond++, i, atom1);
+  if (Efieldflag || bondflag) {
+    for (i = 0; i < atom->nlocal; i++) {
+      for (j = 0; j < atom->num_bond[i]; j++) {
+        atom1 = atom->map(atom->bond_atom[i][j]);
+        atom1 = domain->closest_image(i, (int)atom1);
+        if (force->newton_bond || i < atom1)
+          build_bond_Verlet_list(bond++, i, atom1);
+      }
     }
   }
 
@@ -340,45 +366,61 @@ void FixFRespDsf::post_neighbor()
   int i, j, end, bond = 0;
   bigint atom1;
 
-  //Content of dEr_vals, dEr_indexes and distances arrays is freed.
-  //Could find a more efficient way than freeing all these arrays so many times
-  //per simulation.
-  for (i = 0; i < nbond_old; i++) {
-    memory->destroy(dEr_vals[i]);
-    dEr_vals[i] = NULL;
-    end = dEr_indexes[i][0][0];
-    for (j = 0; j <= end; j++) free(dEr_indexes[i][j]);
-    memory->sfree(dEr_indexes[i]);
-    dEr_indexes[i] = NULL;
-  }
-
-  j = count_total_bonds();
-
-  //dEr_vals, dEr_indexes and distances arrays are deallocated, reallocated and
-  //initialized as pointing to NULL.
-  if (nbond_old != j) {
-    nbond_old = j;
-    memory->destroy(bond_extremes_pos);
-    free(dEr_vals);
-    free(dEr_indexes);
-    dEr_vals = (double***) calloc(nbond_old, sizeof(double**));
-    dEr_indexes = (tagint***) calloc(nbond_old, sizeof(tagint**));
-    memory->create(bond_extremes_pos, nbond_old, 2, "fresp:bond_extremes_pos");
+  if (Efieldflag || bondflag) {
+    //Content of dEr_vals and dEr_indexes arrays is freed.
+    //Could find a more efficient way than freeing all these arrays so many times
+    //per simulation.
     for (i = 0; i < nbond_old; i++) {
+      memory->destroy(dEr_vals[i]);
       dEr_vals[i] = NULL;
+      end = dEr_indexes[i][0][0];
+      for (j = 0; j <= end; j++) free(dEr_indexes[i][j]);
+      memory->sfree(dEr_indexes[i]);
       dEr_indexes[i] = NULL;
     }
+
+    j = count_total_bonds();
+
+    //dEr_vals and dEr_indexes arrays are deallocated, reallocated and
+    //initialized as pointing to NULL.
+    if (nbond_old != j) {
+      nbond_old = j;
+      memory->destroy(bond_extremes_pos);
+      free(dEr_vals);
+      free(dEr_indexes);
+      dEr_vals = (double***) calloc(nbond_old, sizeof(double**));
+      dEr_indexes = (tagint***) calloc(nbond_old, sizeof(tagint**));
+      memory->create(bond_extremes_pos, nbond_old, 2, "fresp:bond_extremes_pos");
+      for (i = 0; i < nbond_old; i++) {
+        dEr_vals[i] = NULL;
+        dEr_indexes[i] = NULL;
+      }
+    }
+
+    if (bondflag) memory->create(db_vals, nbond_old, 3, "fresp:db_vals");
+  }
+
+  if (angleflag) {
+    nangle_old = neighbor->nanglelist;
+    memory->grow(da_vals, nangle_old, 4, 3, "fresp:da_vals");
+  }
+
+  if (improperflag) {
+    nimproper_old = neighbor->nimproperlist;
+    memory->grow(dimp_vals, nimproper_old, 4, 3, "fresp:dimp_vals");
   }
 
   //Build new neighbor lists needed by F-RESP
   neighbor->build_one(list);
 
-  for (i = 0; i < atom->nlocal; i++) {
-    for (j = 0; j < atom->num_bond[i]; j++) {
-      atom1 = atom->map(atom->bond_atom[i][j]);
-      atom1 = domain->closest_image(i, (int)atom1);
-      if (force->newton_bond || i < atom1)
-        build_bond_Verlet_list(bond++, i, atom1);
+  if (Efieldflag || bondflag) {
+    for (i = 0; i < atom->nlocal; i++) {
+      for (j = 0; j < atom->num_bond[i]; j++) {
+        atom1 = atom->map(atom->bond_atom[i][j]);
+        atom1 = domain->closest_image(i, (int)atom1);
+        if (force->newton_bond || i < atom1)
+          build_bond_Verlet_list(bond++, i, atom1);
+      }
     }
   }
 }
@@ -402,7 +444,7 @@ void FixFRespDsf::pre_force(int vflag)
   update->eflag_atom = update->eflag_global = update->ntimestep;
   pe->addstep(update->ntimestep + 1);
 
-  //deltaq, erfc_erf_arr and already_cycled arrays are cleared
+  //deltaq array is cleared
   for (i = 0; i < nmax; i++) deltaq[i] = 0.0;
 
   if (Efieldflag || bondflag) q_update_Efield_bond();
@@ -429,13 +471,6 @@ void FixFRespDsf::pre_force(int vflag)
 
 void FixFRespDsf::pre_reverse(int eflag, int vflag)
 {
-  int bond, i, j, atom1_t, atom2_t, center_t, iplusone;
-  tagint der_atom, global_atom1, global_atom2, global_center, center;
-  bigint molecule;
-  double alpha, tot_pot, alpha_tot_pot, v[6], deltaf[3];
-  double kb, kb_tot_pot, bondv[3], bondvinv;
-  int atom1, atom2, atom1_pos, atom2_pos;
-
   if (update->ntimestep % nevery) return;
 
   // energy and virial setup
@@ -450,69 +485,9 @@ void FixFRespDsf::pre_reverse(int eflag, int vflag)
   comm->reverse_comm_fix(this);
   comm->forward_comm_fix(this);
 
-  for (bond = 0; bond < nbond_old; bond++) {
-    molecule = atom->molecule[dEr_indexes[bond][0][1]];
-    global_atom1 = atom->tag[dEr_indexes[bond][0][1]];
-    global_atom2 = atom->tag[dEr_indexes[bond][0][2]];
-    atom1_t = types[global_atom1 - 1];
-    atom2_t = types[global_atom2 - 1];
-    if (bondflag) {
-      atom1 = dEr_indexes[bond][0][1];
-      atom2 = dEr_indexes[bond][0][2];
-      atom1_pos = bond_extremes_pos[bond][0];
-      atom2_pos = bond_extremes_pos[bond][1];
-      bondv[0] = atom->x[atom1][0] - atom->x[atom2][0];
-      bondv[1] = atom->x[atom1][1] - atom->x[atom2][1];
-      bondv[2] = atom->x[atom1][2] - atom->x[atom2][2];
-      bondvinv = 1.0 / MathExtra::len3(bondv);
-    }
-    for (j = 1; j <= mol_map[(int)molecule - 1][0]; j++) {
-      global_center = (tagint)mol_map[molecule - 1][j];
-      center = atom->map(global_center);
-      center_t = types[global_center - 1];
-      alpha = k_Efield[atom1_t][atom2_t][center_t];
-      tot_pot = 2.0 * (force->pair->eatomcoul[center] +
-        force->kspace->eatom[center]) / atom->q[center];
-      alpha_tot_pot = alpha * tot_pot;
-      if (bondflag) {
-        kb = k_bond[atom1_t][atom2_t][center_t];
-        kb_tot_pot = kb * tot_pot;
-      }
-      for (i = 0; i < dEr_indexes[bond][0][0]; i++) {
-        iplusone = i + 1;
-        if (dEr_indexes[bond][iplusone][1] == (tagint)-1) continue;
-        //Last element of dEr_indexes[bond][][0] is the index of atom1 and
-        //doesen't need a transformatin through "& NEIGHMASK"
-        if (iplusone == dEr_indexes[bond][0][0])
-          der_atom = dEr_indexes[bond][iplusone][0];
-        else
-          der_atom = dEr_indexes[bond][iplusone][0] & NEIGHMASK;
-        //Minus sign is needed because F = -dU/dr and dEr_vals * alpha_tot_pot
-        //is dU/dr
-        deltaf[0] = -dEr_vals[bond][i][0] * alpha_tot_pot;
-        deltaf[1] = -dEr_vals[bond][i][1] * alpha_tot_pot;
-        deltaf[2] = -dEr_vals[bond][i][2] * alpha_tot_pot;
-        if (bondflag && (i == atom1_pos || i == atom2_pos)) {
-          //if atom2 is considered
-          if (i == atom2_pos) kb_tot_pot *= -1.0;
-          deltaf[0] -= bondv[0] * kb_tot_pot * bondvinv;
-          deltaf[1] -= bondv[1] * kb_tot_pot * bondvinv;
-          deltaf[2] -= bondv[2] * kb_tot_pot * bondvinv;
-        }
-        MathExtra::add3(atom->f[der_atom], deltaf, atom->f[der_atom]);
-
-        if (evflag) {
-          v[0] = deltaf[0] * atom->x[der_atom][0];
-          v[1] = deltaf[1] * atom->x[der_atom][1];
-          v[2] = deltaf[2] * atom->x[der_atom][2];
-          v[3] = deltaf[0] * atom->x[der_atom][1];
-          v[4] = deltaf[0] * atom->x[der_atom][2];
-          v[5] = deltaf[1] * atom->x[der_atom][2];
-          v_tally(der_atom, v);
-        }
-      }
-    }
-  }
+  if (Efieldflag || bondflag) force_update_Efield_bond();
+  if (angleflag) force_update_angle();
+  if (improperflag) force_update_improper();
 }
 
 /* ----------------------------------------------------------------------
@@ -521,23 +496,37 @@ void FixFRespDsf::pre_reverse(int eflag, int vflag)
 
 double FixFRespDsf::memory_usage()
 {
-  int bond;
+  int i;
   double bytes = 0.0;
   bytes += atom->natoms * sizeof(int); //types
   bytes += nmolecules * (average_mol_size + 1) * sizeof(bigint); //mol_map
-  bytes += natypes * natypes * natypes * sizeof(double); //k_bond
-  bytes += natypes * natypes * natypes * natypes * sizeof(double); //k_angle
-  bytes += natypes * natypes * natypes * natypes * natypes *
-    sizeof(double); //k_dihedral
-  bytes += natypes * natypes * natypes * natypes * natypes *
-    sizeof(double); //k_improper
-  bytes += natypes * natypes * natypes * sizeof(double); //k_Efield
   bytes += 2 * natypes * sizeof(double); //q0 and qgen
   bytes += 1 * nmax * sizeof(double); //deltaq
-  //dEr_vals, dEr_indexes and distances
-  for (bond = 0; bond < nbond_old; bond ++)
-    bytes += dEr_indexes[bond][0][0] * (2 * (sizeof(tagint) + sizeof(bigint) + \
-    3 * sizeof(double))) + 3 * sizeof(bigint);
+  if (angleflag) {
+    bytes += natypes * natypes * natypes * natypes * sizeof(double); //k_angle
+    //da_vals
+    bytes += nangle_old * 9 * sizeof(double);
+  }
+  if (dihedralflag) bytes += natypes * natypes * natypes * natypes * natypes *
+    sizeof(double); //k_dihedral
+  if (improperflag) {
+    //k_improper
+    bytes += natypes * natypes * natypes * natypes * natypes * sizeof(double);
+    //dimp_vals
+    bytes += nimproper_old * 12 * sizeof(double);
+  }
+  if (Efieldflag || bondflag) {
+    //dEr_vals and dEr_indexes
+    for (i = 0; i < nbond_old; i ++)
+      bytes += dEr_indexes[i][0][0] * (2 * (sizeof(tagint) + sizeof(bigint) + 
+      3 * sizeof(double))) + 3 * sizeof(bigint);
+    //k_Efield
+    if (Efieldflag) bytes += natypes * natypes * natypes * sizeof(double);
+    if (bondflag) {
+      bytes += nbond_old * sizeof(double); //db_vals
+      bytes += natypes * natypes * natypes * sizeof(double); //k_bond
+    }
+  }
   return bytes;
 }
 
@@ -569,4 +558,201 @@ double FixFRespDsf::Efield_damping(double r, double *dampvec)
   }
   MathExtra::scale3(0.0, dampvec);
   return 1.0;
+}
+
+/* ---------------------------------------------------------------------- 
+  Forces are updated considering electric field and bond stretching
+    polarization contribution
+   ---------------------------------------------------------------------- */
+
+void FixFRespDsf::force_update_Efield_bond()
+{
+  int bond, i, j, atom1_t, atom2_t, center_t, iplusone;
+  tagint der_atom, global_atom1, global_atom2, global_center, center;
+  tagint atom1;
+  bigint molecule;
+  double alpha, tot_pot, alpha_tot_pot, v[6], deltaf[3];
+  double kb, kb_tot_pot;
+  int atom1_pos, atom2_pos;
+
+  //Contributions from electric field and bond stretching could be separed,
+  //therefore permitting to calculate bond stretching contribution only
+  //fron non-constrained bonds, differently from the current implementation TODO
+  for (bond = 0; bond < nbond_old; bond++) {
+    atom1 = dEr_indexes[bond][0][1];
+    global_atom1 = atom->tag[atom1];
+    global_atom2 = atom->tag[dEr_indexes[bond][0][2]];
+    atom1_t = types[global_atom1 - 1];
+    atom2_t = types[global_atom2 - 1];
+    molecule = atom->molecule[atom1];
+    if (bondflag) {
+      atom1_pos = bond_extremes_pos[bond][0];
+      atom2_pos = bond_extremes_pos[bond][1];
+    }
+    for (j = 1; j <= mol_map[(int)molecule - 1][0]; j++) {
+      global_center = (tagint)mol_map[molecule - 1][j];
+      center = atom->map(global_center);
+      center_t = types[global_center - 1];
+      tot_pot = 2.0 * (force->pair->eatomcoul[center] +
+        force->kspace->eatom[center]) / atom->q[center];
+      if (Efieldflag) {
+        alpha = k_Efield[atom1_t][atom2_t][center_t];
+        alpha_tot_pot = alpha * tot_pot;
+      }
+      if (bondflag) {
+        kb = k_bond[atom1_t][atom2_t][center_t];
+        kb_tot_pot = kb * tot_pot;
+      }
+      for (i = 0; i < dEr_indexes[bond][0][0]; i++) {
+        iplusone = i + 1;
+        if (dEr_indexes[bond][iplusone][1] == (tagint)-1) continue;
+        //Last element of dEr_indexes[bond][][0] is the index of atom1 and
+        //doesen't need a transformatin through "& NEIGHMASK"
+        if (iplusone == dEr_indexes[bond][0][0])
+          der_atom = dEr_indexes[bond][iplusone][0];
+        else
+          der_atom = dEr_indexes[bond][iplusone][0] & NEIGHMASK;
+        MathExtra::zero3(deltaf);
+        if (Efieldflag) {
+          //Minus sign is needed because F = -dU/dr and dEr_vals * alpha_tot_pot
+          //is dU/dr
+          deltaf[0] -= dEr_vals[bond][i][0] * alpha_tot_pot;
+          deltaf[1] -= dEr_vals[bond][i][1] * alpha_tot_pot;
+          deltaf[2] -= dEr_vals[bond][i][2] * alpha_tot_pot;
+        }
+        if (bondflag && (i == atom1_pos || i == atom2_pos)) {
+          //if atom2 is considered, the sign of bond length derivative has
+          //to be reversed
+          if (i == atom2_pos) kb_tot_pot *= -1.0;
+          deltaf[0] -= db_vals[bond][0] * kb_tot_pot;
+          deltaf[1] -= db_vals[bond][1] * kb_tot_pot;
+          deltaf[2] -= db_vals[bond][2] * kb_tot_pot;
+        }
+        MathExtra::add3(atom->f[der_atom], deltaf, atom->f[der_atom]);
+
+        if (evflag) {
+          v[0] = deltaf[0] * atom->x[der_atom][0];
+          v[1] = deltaf[1] * atom->x[der_atom][1];
+          v[2] = deltaf[2] * atom->x[der_atom][2];
+          v[3] = deltaf[0] * atom->x[der_atom][1];
+          v[4] = deltaf[0] * atom->x[der_atom][2];
+          v[5] = deltaf[1] * atom->x[der_atom][2];
+          v_tally(der_atom, v);
+        }
+      }
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------- 
+  Forces are updated considering angle bending polarization contribution
+   ---------------------------------------------------------------------- */
+
+void FixFRespDsf::force_update_angle()
+{
+  int i, j, atom1_t, atom2_t, center_t;
+  tagint der_atom, global_atom1, global_atom2, global_center, center;
+  tagint global_atom3;
+  bigint molecule;
+  double tot_pot, v[6], deltaf[3];
+  int atom1, atom2, atom3, atom3_t, angle;
+  int **anglelist = neighbor->anglelist;
+  double ka, ka_tot_pot;
+
+  for (angle = 0; angle < nangle_old; angle++) {
+    atom1 = anglelist[angle][0];
+    atom2 = anglelist[angle][1];
+    atom3 = anglelist[angle][2];
+    global_atom1 = atom->tag[atom1];
+    global_atom2 = atom->tag[atom2];
+    global_atom3 = atom->tag[atom3];
+    atom1_t = types[global_atom1 - 1];
+    atom2_t = types[global_atom2 - 1];
+    atom3_t = types[global_atom3 - 1];
+    molecule = atom->molecule[atom1];
+    for (j = 1; j <= mol_map[(int)molecule - 1][0]; j++) {
+      global_center = (tagint)mol_map[molecule - 1][j];
+      center = atom->map(global_center);
+      center_t = types[global_center - 1];
+      ka = k_angle[atom1_t][atom2_t][atom3_t][center_t];
+      tot_pot = 2.0 * (force->pair->eatomcoul[center] +
+        force->kspace->eatom[center]) / atom->q[center];
+      ka_tot_pot = ka * tot_pot;
+      for (i = 0; i < 3; i ++) {
+        der_atom = anglelist[angle][i];
+        deltaf[0] = -da_vals[angle][i][0] * ka_tot_pot;
+        deltaf[1] = -da_vals[angle][i][1] * ka_tot_pot;
+        deltaf[2] = -da_vals[angle][i][2] * ka_tot_pot;
+        MathExtra::add3(atom->f[der_atom], deltaf, atom->f[der_atom]);
+
+        if (evflag) {
+          v[0] = deltaf[0] * atom->x[der_atom][0];
+          v[1] = deltaf[1] * atom->x[der_atom][1];
+          v[2] = deltaf[2] * atom->x[der_atom][2];
+          v[3] = deltaf[0] * atom->x[der_atom][1];
+          v[4] = deltaf[0] * atom->x[der_atom][2];
+          v[5] = deltaf[1] * atom->x[der_atom][2];
+          v_tally(der_atom, v);
+        }
+      }
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------- 
+  Forces are updated considering improper torsion polarization contribution
+   ---------------------------------------------------------------------- */
+
+void FixFRespDsf::force_update_improper()
+{
+  int i, j, atom1_t, atom2_t, center_t;
+  tagint der_atom, global_atom1, global_atom2, global_center, center;
+  tagint global_atom3, global_atom4;
+  bigint molecule;
+  double tot_pot, v[6], deltaf[3];
+  int atom1, atom2, atom3, atom4, atom3_t, atom4_t, improper;
+  int **improperlist = neighbor->improperlist;
+  double ki, ki_tot_pot;
+
+  for (improper = 0; improper < nimproper_old; improper++) {
+    atom1 = improperlist[improper][0];
+    atom2 = improperlist[improper][1];
+    atom3 = improperlist[improper][2];
+    atom4 = improperlist[improper][3];
+    global_atom1 = atom->tag[atom1];
+    global_atom2 = atom->tag[atom2];
+    global_atom3 = atom->tag[atom3];
+    global_atom4 = atom->tag[atom4];
+    atom1_t = types[global_atom1 - 1];
+    atom2_t = types[global_atom2 - 1];
+    atom3_t = types[global_atom3 - 1];
+    atom4_t = types[global_atom4 - 1];
+    molecule = atom->molecule[atom1];
+    for (j = 1; j <= mol_map[(int)molecule - 1][0]; j++) {
+      global_center = (tagint)mol_map[molecule - 1][j];
+      center = atom->map(global_center);
+      center_t = types[global_center - 1];
+      ki = k_improper[atom1_t][atom2_t][atom3_t][atom4_t][center_t];
+      tot_pot = 2.0 * (force->pair->eatomcoul[center] +
+        force->kspace->eatom[center]) / atom->q[center];
+      ki_tot_pot = ki * tot_pot;
+      for (i = 0; i < 4; i ++) {
+        der_atom = improperlist[improper][i];
+        deltaf[0] = -dimp_vals[improper][i][0] * ki_tot_pot;
+        deltaf[1] = -dimp_vals[improper][i][1] * ki_tot_pot;
+        deltaf[2] = -dimp_vals[improper][i][2] * ki_tot_pot;
+        MathExtra::add3(atom->f[der_atom], deltaf, atom->f[der_atom]);
+
+        if (evflag) {
+          v[0] = deltaf[0] * atom->x[der_atom][0];
+          v[1] = deltaf[1] * atom->x[der_atom][1];
+          v[2] = deltaf[2] * atom->x[der_atom][2];
+          v[3] = deltaf[0] * atom->x[der_atom][1];
+          v[4] = deltaf[0] * atom->x[der_atom][2];
+          v[5] = deltaf[1] * atom->x[der_atom][2];
+          v_tally(der_atom, v);
+        }
+      }
+    }
+  }
 }

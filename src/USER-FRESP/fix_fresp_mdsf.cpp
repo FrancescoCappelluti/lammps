@@ -53,14 +53,14 @@ FixFRespMDsf::~FixFRespMDsf()
 
 void FixFRespMDsf::q_update_Efield_bond()
 {
-  double xm[3], **x = atom->x, k, rvml, rvminv, rvminvsq, rvm[3], r0;
+  double xm[3], **x = atom->x, rvml, rvminv, rvminvsq, rvm[3], r0;
   double  bondvl, bondvinv, bondvinvsq, pref, q_gen; 
   bigint atom1, atom2, center, global_center, global_atom1, global_atom2;
   bigint molecule;
-  int atom1_t, atom2_t, center_t, i, iplusone, bond, atom1_pos, atom2_pos;
-  double bondv[3], E[3], Efield[3], Eparallel, erfc, rvmlsq, partialerfc;
+  int atom1_t, atom2_t, i, iplusone, bond, atom1_pos, atom2_pos;
+  double bondv[3], wlenin, E[3], Efield[3], Eparallel, rvmlsq, partialerfc;
   double grij, expm2, fsp, ssp, tsp, betaexp;
-  double minus_grijsq, ddamping[3];
+  double ddamping[3];
   double fvp[3], svp[3], bondrvmprod, damping, factor_coul;
   static double tgeospi = 2.0 * g_ewald / MathConst::MY_PIS;
   static double cutoff3sq = cutoff3 * cutoff3, cutoff1sq = cutoff1 * cutoff1;
@@ -80,6 +80,9 @@ void FixFRespMDsf::q_update_Efield_bond()
     }
   }
 
+  //Using bonds stored in dEr_indexes instead of nbondlist, cycle is
+  //performed over all bonds, even those that are constrained by SHAKE. Even
+  //bond stretching charge contribution is therefore accounted for.
   for (bond = 0; bond < nbond_old; bond++) {
     //E is initialized as {0., 0., 0.}
     MathExtra::zero3(E);
@@ -98,12 +101,12 @@ void FixFRespMDsf::q_update_Efield_bond()
     bondv[1] = x[atom1][1] - x[atom2][1];
     bondv[2] = x[atom1][2] - x[atom2][2];
     bondvl = MathExtra::len3(bondv);
+    bondvinv = 1.0 / bondvl;
 
     //This check is here because, if false, bondv has already been calculated
     //and can be used for charge variation due to bond stretching
     //qsqsum is that declared in constructor, need to correct
     if (Efieldflag && qsqsum > 0.0) {
-      bondvinv = 1.0 / bondvl;
       bondvinvsq = bondvinv * bondvinv;
       xm[0] = (x[atom1][0] + x[atom2][0]) * 0.5;
       xm[1] = (x[atom1][1] + x[atom2][1]) * 0.5;
@@ -214,14 +217,24 @@ void FixFRespMDsf::q_update_Efield_bond()
         dEr_vals[bond][atom2_pos][2] += pref * fvp[2] - svp[2];
       }
       Eparallel = MathExtra::dot3(E, bondv);
-      if (printEfieldflag) fprintf(stderr, "%i %i %.14lf\n", global_atom1,
-        global_atom2, Eparallel);
+
+      if (printEfieldflag) fprintf(stderr, BIGINT_FORMAT " " BIGINT_FORMAT
+      " %.14lf\n", global_atom1, global_atom2, Eparallel);
+
+      deltaq_update_Efield(molecule, atom1_t, atom2_t, Eparallel);
     }
 
     if (bondflag) {
       r0 = force->bond->equilibrium_distance(neighbor->bondlist[bond][2]);
-      deltaq_update(molecule, atom1_t, atom2_t, Eparallel, bondvl - r0);
+      //deltaq_update(molecule, atom1_t, atom2_t, Eparallel, bondvl - r0);
+      wlenin = bondvl - r0;
+
+      db_vals[bond][0] = bondv[0] * bondvinv;
+      db_vals[bond][1] = bondv[1] * bondvinv;
+      db_vals[bond][2] = bondv[2] * bondvinv;
+
+      deltaq_update_bond(molecule, atom1_t, atom2_t, wlenin);
     }
-    else deltaq_update(molecule, atom1_t, atom2_t, Eparallel);
+    //else deltaq_update(molecule, atom1_t, atom2_t, Eparallel);
   }
 }

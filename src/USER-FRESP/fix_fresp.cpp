@@ -199,7 +199,6 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
   modify->add_compute(5, str);
   free(str);
   //atom->add_callback(0); ???
-  
 }
 
 /* --------------------------------------------------------------------- 
@@ -229,6 +228,8 @@ FixFResp::~FixFResp() {
   }
   free(dEr_vals);
   free(dEr_indexes);
+  memory->destroy(dimp_vals);
+  memory->destroy(da_vals);
   memory->destroy(bond_extremes_pos);
   modify->delete_compute(id_pe);
 
@@ -371,56 +372,75 @@ void FixFResp::unpack_reverse_comm(int n, int *list, double *buf)
 void FixFResp::q_update_angle()
 {
   bigint atom1, atom2, atom3, global_atom1, global_atom2, global_atom3,
-    global_center, molecule;
-  double delx1, dely1, delz1, delx2, dely2, delz2, r1, r2, a, a0, da, k, c;
-  double **x = atom->x;
-  int atype, atom1_t, atom2_t, atom3_t, center_t, m, n;
+    molecule;
+  double r1inv, r2inv, a, a0, da, num, invden, cosa, fvpi[3], fvpk[3];
+  double rij[3], rkj[3], rijuv[3], rkjuv[3], dadri[3], dadrj[3], dadrk[3];
+  double vpi[3], vpk[3], pref, prefi, prefk, **x = atom->x;
+  int atype, atom1_t, atom2_t, atom3_t, an;
 
-  for (n = 0; n < neighbor->nanglelist; n++) {
-    atom1 = neighbor->anglelist[n][0];
-    atom2 = neighbor->anglelist[n][1];
-    atom3 = neighbor->anglelist[n][2];
-    atype = neighbor->anglelist[n][3];
-    global_atom1 = atom->tag[atom1] - 1;
-    global_atom2 = atom->tag[atom2] - 1;
-    global_atom3 = atom->tag[atom3] - 1;
+  for (an = 0; an < neighbor->nanglelist; an++) {
+    atom1 = neighbor->anglelist[an][0];
+    atom2 = neighbor->anglelist[an][1];
+    atom3 = neighbor->anglelist[an][2];
+    atype = neighbor->anglelist[an][3];
+    global_atom1 = atom->tag[atom1];
+    global_atom2 = atom->tag[atom2];
+    global_atom3 = atom->tag[atom3];
     molecule = atom->molecule[atom1];
+    atom1_t = types[global_atom1 - 1];
+    atom2_t = types[global_atom2 - 1];
+    atom3_t = types[global_atom3 - 1];
     
-    delx1 = x[atom1][0] - x[atom2][0];
-    dely1 = x[atom1][1] - x[atom2][1];
-    delz1 = x[atom1][2] - x[atom2][2];
-    domain->minimum_image(delx1,dely1,delz1);
-    r1 = sqrt(delx1*delx1 + dely1*dely1 + delz1*delz1);
+    MathExtra::sub3(x[atom1], x[atom2], rij);
+    domain->minimum_image(rij[0], rij[1], rij[2]);
+    r1inv = 1. / MathExtra::len3(rij);
 
-    delx2 = x[atom3][0] - x[atom2][0];
-    dely2 = x[atom3][1] - x[atom2][1];
-    delz2 = x[atom3][2] - x[atom2][2];
-    domain->minimum_image(delx2,dely2,delz2);
-    r2 = sqrt(delx2*delx2 + dely2*dely2 + delz2*delz2);
+    MathExtra::sub3(x[atom3], x[atom2], rkj);
+    domain->minimum_image(rkj[0], rkj[1], rkj[2]);
+    r2inv = 1. / MathExtra::len3(rkj);
 
-    // c = cosine of angle
-    c = delx1*delx2 + dely1*dely2 + delz1*delz2;
-    c /= r1*r2;
-    if (c > 1.0) c = 1.0;
-    if (c < -1.0) c = -1.0;
-    a = 180.0*acos(c) / MathConst::MY_PI;
+    num = MathExtra::dot3(rij, rkj);
+    invden = r1inv * r2inv;
+    cosa = num * invden;
+    a = acos(cosa);
+
     a0 = force->angle->equilibrium_angle(atype);
+
     da = a - a0;
 
-    //A cycle over all the atoms in the same molecule of the angle is done
-    //in order to correct their charges according to k_angle coefficient
-    for (m = 1; m <= mol_map[molecule - 1][0]; m++) { 
-      global_center = mol_map[molecule - 1][m] - 1;
-      atom1_t = types[global_atom1];
-      atom2_t = types[global_atom2];
-      atom3_t = types[global_atom3];
-      center_t = types[global_center];
-      k = k_angle[atom1_t][atom2_t][atom3_t][center_t];
-      
-      //Charge variation are put in deltaq instead of atom->q in order
-      //to permit their communication to other processes
-      deltaq[atom->map((int)global_center + 1)] += k * da;
-    }
+    //charge variation is proportional to a - a0
+    deltaq_update_angle(molecule, atom1_t, atom2_t, atom3_t, da);
+    
+    pref = 1. / sqrt(1. - cosa * cosa);
+    prefi = pref * r1inv;
+    prefk = pref * r2inv;
+
+    //Unit vectors of rij and rkj are calculated
+    MathExtra::copy3(rij, rijuv);
+    MathExtra::copy3(rkj, rkjuv);
+    MathExtra::scale3(r1inv, rijuv);
+    MathExtra::scale3(r2inv, rkjuv);
+
+    MathExtra::copy3(rijuv, fvpi);
+    MathExtra::copy3(rkjuv, fvpk);
+    MathExtra::scale3(cosa, fvpi);
+    MathExtra::scale3(cosa, fvpk);
+
+    MathExtra::sub3(fvpi, rkjuv, vpi);
+    MathExtra::sub3(fvpk, rijuv, vpk);
+
+    MathExtra::copy3(vpi, dadri);
+    MathExtra::copy3(vpk, dadrk);
+    MathExtra::scale3(prefi, dadri);
+    MathExtra::scale3(prefk, dadrk);
+    
+    MathExtra::copy3(dadri, da_vals[an][0]);
+    MathExtra::copy3(dadrk, da_vals[an][2]);
+
+    MathExtra::negate3(dadri);
+    MathExtra::sub3(dadri, dadrk, dadrj);
+
+    MathExtra::copy3(dadrj, da_vals[an][1]);
   }
 }
 
@@ -522,89 +542,119 @@ void FixFResp::q_update_dihedral()
 
 void FixFResp::q_update_improper()
 {
-/*  bigint center, atom1, atom2, atom3, atom4, global_atom1, global_atom2;
-  bigint global_atom3, global_atom4, global_center, molecule;
-  double vb1x, vb1y, vb1z, vb2x, vb2y, vb2z, vb3x, vb3y, vb3z;
-  double ss1, ss2, ss3, r1, r2, r3, c0, c1, c2, s1, s2;
-  double s12, c;
-  double im, dim, im0;
+  bigint atom1, atom2, atom3, atom4, global_atom1, global_atom2;
+  bigint global_atom3, global_atom4, molecule;
+  int improper, atom1_t, atom2_t, atom3_t, atom4_t, itype;
+  double im, absim, im0;
+  double rij[3], rkj[3], rik[3], rkl[3], rjl[3], casnafn[3], dasnafn;
+  double pref, a[3], b[3], afn[3], asn[3], af[3], as[3], afd, asd; 
+  double cosim, cosimas[3], cosimaf[3], dcosimdri[3], dcosimdrl[3];
+  double dcosimdrj[3], dcosimdrk[3], dcosimdrj1[3], dcosimdrj2[3], ddimdri[3];
+  double dcosimdrk1[3], dcosimdrk2[3], ddimdrj[3], ddimdrk[3], ddimdrl[3];
   double **x = atom->x;
-  double k; //k coeff for improper variation
-  int nlocal = atom->nlocal, nghost = atom->nghost;
-  int itype; //improper type
 
-  for (int n = 0; n < neighbor->nimproperlist; n++) {
-    atom1 = neighbor->improperlist[n][0];
-    atom2 = neighbor->improperlist[n][1];
-    atom3 = neighbor->improperlist[n][2];
-    atom4 = neighbor->improperlist[n][3];
-    itype = neighbor->improperlist[n][4];
+  for (improper = 0; improper < nimproper_old; improper++) {
+    atom1 = neighbor->improperlist[improper][0];
+    atom2 = neighbor->improperlist[improper][1];
+    atom3 = neighbor->improperlist[improper][2];
+    atom4 = neighbor->improperlist[improper][3];
+    itype = neighbor->improperlist[improper][4];
     global_atom1 = atom->tag[atom1];
     global_atom2 = atom->tag[atom2];
     global_atom3 = atom->tag[atom3];
     global_atom4 = atom->tag[atom4];
     molecule = atom->molecule[atom1];
+    atom1_t = types[global_atom1 - 1];
+    atom2_t = types[global_atom2 - 1];
+    atom3_t = types[global_atom3 - 1];
+    atom4_t = types[global_atom4 - 1];
 
-    vb1x = x[atom1][0] - x[atom2][0];
-    vb1y = x[atom1][1] - x[atom2][1];
-    vb1z = x[atom1][2] - x[atom2][2];
-    domain->minimum_image(vb1x,vb1y,vb1z);
+    MathExtra::sub3(x[atom1], x[atom2], rij);
+    domain->minimum_image(rij[0], rij[1], rij[2]);
 
-    vb2x = x[atom3][0] - x[atom2][0];
-    vb2y = x[atom3][1] - x[atom2][1];
-    vb2z = x[atom3][2] - x[atom2][2];
-    domain->minimum_image(vb2x,vb2y,vb2z);
+    MathExtra::sub3(x[atom3], x[atom2], rkj);
+    domain->minimum_image(rkj[0], rkj[1], rkj[2]);
 
-    vb3x = x[atom4][0] - x[atom3][0];
-    vb3y = x[atom4][1] - x[atom3][1];
-    vb3z = x[atom4][2] - x[atom3][2];
-    domain->minimum_image(vb3x,vb3y,vb3z);
+    MathExtra::sub3(x[atom3], x[atom4], rkl);
+    domain->minimum_image(rkl[0], rkl[1], rkl[2]);
 
-    ss1 = 1.0 / (vb1x*vb1x + vb1y*vb1y + vb1z*vb1z);
-    ss2 = 1.0 / (vb2x*vb2x + vb2y*vb2y + vb2z*vb2z);
-    ss3 = 1.0 / (vb3x*vb3x + vb3y*vb3y + vb3z*vb3z);
+    MathExtra::sub3(x[atom1], x[atom3], rik);
+    domain->minimum_image(rik[0], rik[1], rik[2]);
 
-    r1 = sqrt(ss1);
-    r2 = sqrt(ss2);
-    r3 = sqrt(ss3);
+    MathExtra::sub3(x[atom2], x[atom4], rjl);
+    domain->minimum_image(rjl[0], rjl[1], rjl[2]);
 
-    c0 = (vb1x * vb3x + vb1y * vb3y + vb1z * vb3z) * r1 * r3;
-    c1 = (vb1x * vb2x + vb1y * vb2y + vb1z * vb2z) * r1 * r2;
-    c2 = -(vb3x * vb2x + vb3y * vb2y + vb3z * vb2z) * r3 * r2;
+    MathExtra::cross3(rkj, rkl, afn);
+    MathExtra::cross3(rij, rkj, asn);
+    afd = 1. / MathExtra::len3(afn);
+    asd = 1. / MathExtra::len3(asn);
 
-    s1 = 1.0 - c1*c1;
-    if (s1 < SMALL) s1 = SMALL;
-    s1 = 1.0 / s1;
+    MathExtra::cross3(asn, afn, casnafn);
+    dasnafn = MathExtra::dot3(asn, afn);
+    //Being cosine symmetric with respect to y-axis, following product already
+    //is the cosine of im: cos(im) = cos(+/-acos(arg)) = cos(acos(arg)) = arg.
+    cosim = dasnafn * asd * afd;
+    im = acos(cosim);
+    if (MathExtra::dot3(rkj, casnafn) < 0.) im *= -1.;
 
-    s2 = 1.0 - c2*c2;
-    if (s2 < SMALL) s2 = SMALL;
-    s2 = 1.0 / s2;
+    //pref = d(im)/d(cos(im))
+    pref = -1. / sin(im);
 
-    s12 = sqrt(s1*s2);
-    c = (c1*c2 + c0) * s12;
-
-    if (c > 1.0) c = 1.0;
-    if (c < -1.0) c = -1.0;
-    im = 180.0*acos(c) / MathConst::MY_PI;
-    im0 = force->improper->equilibrium_improper(itype); //???
-    dim = im - im0;
-
-    for (int m = 1; m < mol_map[molecule - 1][0]; m++) { 
-      global_center = mol_map[molecule - 1][m];
-      center = atom->map(global_center);
-      atom1_t = types[global_atom1] - 1;
-      atom2_t = types[global_atom2] - 1;
-      atom3_t = types[global_atom3] - 1;
-      atom4_t = types[global_atom4] - 1;
-      center_t = types[global_center] - 1;
-      k = k_improper[atom1_t][atom2_t][atom3_t][atom4_t][center_t];
-
-      //Charge variation are put in deltaq instead of atom->q in order
-      //to permit their communication to other processes
-      deltaq[global_center - 1] += k * dim;
+    //abs(im) is employed for charge variation
+    //pref is multiplied times sign(im)
+    if (im > 0.) {
+      absim = im;
     }
+    else {
+      absim = -im;
+      pref *= -1.;
+    }
+
+    //differently from the others "deltaq_update" functions, only |im| is
+    //passed as argument because im0 will be retrieved by the function
+    deltaq_update_improper(molecule, atom1_t, atom2_t, atom3_t, atom4_t, absim);
+
+    MathExtra::copy3(afn, af);
+    MathExtra::copy3(asn, as);
+    MathExtra::scale3(afd, af);
+    MathExtra::scale3(asd, as);
+
+    MathExtra::copy3(af, cosimaf);
+    MathExtra::copy3(as, cosimas);
+    MathExtra::scale3(cosim, cosimaf);
+    MathExtra::scale3(cosim, cosimas);
+    
+    MathExtra::sub3(af, cosimas, a);
+    MathExtra::sub3(as, cosimaf, b);
+    MathExtra::scale3(asd, a);
+    MathExtra::scale3(afd, b);
+
+    MathExtra::cross3(rik, a, dcosimdrj1);
+    MathExtra::cross3(rkl, b, dcosimdrj2);
+    MathExtra::cross3(rjl, b, dcosimdrk1);
+    MathExtra::cross3(rij, a, dcosimdrk2);
+
+    MathExtra::cross3(rkj, a, dcosimdri);
+    MathExtra::cross3(rkj, b, dcosimdrl);
+    MathExtra::sub3(dcosimdrj1, dcosimdrj2, dcosimdrj);
+    MathExtra::sub3(dcosimdrk1, dcosimdrk2, dcosimdrk);
+
+    MathExtra::copy3(dcosimdri, ddimdri);
+    MathExtra::copy3(dcosimdrj, ddimdrj);
+    MathExtra::copy3(dcosimdrk, ddimdrk);
+    MathExtra::copy3(dcosimdrl, ddimdrl);
+
+    MathExtra::scale3(pref, ddimdri);
+    MathExtra::scale3(pref, ddimdrj);
+    MathExtra::scale3(pref, ddimdrk);
+    MathExtra::scale3(pref, ddimdrl);
+    
+    MathExtra::copy3(ddimdri, dimp_vals[improper][0]);
+    MathExtra::copy3(ddimdrj, dimp_vals[improper][1]);
+    MathExtra::copy3(ddimdrk, dimp_vals[improper][2]);
+    MathExtra::copy3(ddimdrl, dimp_vals[improper][3]);
   }
-*/}
+}
 
 /* ---------------------------------------------------------------------- */
 
@@ -626,10 +676,12 @@ void FixFResp::read_file(char *file)
 {
   int parseflag = -1, params_per_line = 6, atom1_t, atom2_t, atom3_t,
     atom4_t, center_t;
+  double pho;
   FILE *fp;
   char **words = new char*[params_per_line+1];
   int nwords, eof, i, j, k, l, m, n;
   char line[MAXLINE], *ptr;
+  static double deg2rad = MathConst::MY_PI / 180.;
 
   eof = 0;
  
@@ -723,13 +775,32 @@ void FixFResp::read_file(char *file)
           for (j = 0; j < natypes; j++) {
             for (k = 0; k < natypes; k++) {
               for (l = 0; l < natypes; l++) {
-                for (m = 0; m < natypes; m++) k_dihedral[i][j][k][l][m] = 0.0;
+                for (m = 0; m < natypes; m++) k_improper[i][j][k][l][m] = 0.0;
               }
             }
           }
         }
         parseflag = 5;
         improperflag = true;
+      }
+      else if ((ptr = strstr(line, "phi0_improper"))) {
+
+        //if not already existing, create a tensor where the 1st index
+        //is atom1 of improper, the 2nd is atom2, the 3rd is atom3 and
+        //the 4th is atom4
+        if (!phi0_improper) memory->create(phi0_improper, natypes, natypes,
+          natypes, natypes, "fresp:phi0_improper");
+        for (i = 0; i < natypes; i++) {
+          for (j = 0; j < natypes; j++) {
+            for (k = 0; k < natypes; k++) {
+              for (l = 0; l < natypes; l++) {
+                  phi0_improper[i][j][k][l] = 0.0;
+              }
+            }
+          }
+        }
+        parseflag = 6;
+        phi0improperflag = true;
       }
       else if ((ptr = strstr(line, "k_Efield"))) {
 
@@ -743,7 +814,7 @@ void FixFResp::read_file(char *file)
             for (k = 0; k < natypes; k++) k_Efield[i][j][k] = 0.0;
           }
         }
-        parseflag = 6;
+        parseflag = 7;
         Efieldflag =  true;
         
       }
@@ -774,16 +845,18 @@ void FixFResp::read_file(char *file)
     case 2:
       atom1_t = atoi(words[1]);
       atom2_t = atoi(words[2]);
-      k_bond[atom1_t][atom2_t][center_t] = atof(words[3]);
-      k_bond[atom2_t][atom1_t][center_t] = atof(words[3]);
+      pho = atof(words[3]);
+      k_bond[atom1_t][atom2_t][center_t] = pho;
+      k_bond[atom2_t][atom1_t][center_t] = pho;
       break;
 
     case 3:
       atom1_t = atoi(words[1]);
       atom2_t = atoi(words[2]);
       atom3_t = atoi(words[3]);
-      k_angle[atom1_t][atom2_t][atom3_t][center_t] = atof(words[4]);
-      k_angle[atom3_t][atom2_t][atom1_t][center_t] = atof(words[4]);
+      pho = atof(words[4]);
+      k_angle[atom1_t][atom2_t][atom3_t][center_t] = pho;
+      k_angle[atom3_t][atom2_t][atom1_t][center_t] = pho;
       break;
       
     case 4:
@@ -791,10 +864,11 @@ void FixFResp::read_file(char *file)
       atom2_t = atoi(words[2]);
       atom3_t = atoi(words[3]);
       atom4_t = atoi(words[4]);
+      pho = atof(words[5]);
       k_dihedral[atom1_t][atom2_t][atom3_t][atom4_t][center_t] =
-        atof(words[5]);
+        pho;
       k_dihedral[atom4_t][atom3_t][atom2_t][atom1_t][center_t] =
-        atof(words[5]);
+        pho;
       break;
     
     case 5:
@@ -802,17 +876,30 @@ void FixFResp::read_file(char *file)
       atom2_t = atoi(words[2]);
       atom3_t = atoi(words[3]);
       atom4_t = atoi(words[4]);
+      pho = atof(words[5]);
       k_improper[atom1_t][atom2_t][atom3_t][atom4_t][center_t] =
-        atof(words[5]);
+        pho;
       k_improper[atom4_t][atom3_t][atom2_t][atom1_t][center_t] =
-        atof(words[5]);
+        pho;
       break;
     
     case 6:
+      atom1_t = center_t;
+      atom2_t = atoi(words[1]);
+      atom3_t = atoi(words[2]);
+      atom4_t = atoi(words[3]);
+      //phi0 is converted from radians to degrees
+      pho = atof(words[4]) * deg2rad;
+      phi0_improper[atom1_t][atom2_t][atom3_t][atom4_t] = pho;
+      phi0_improper[atom4_t][atom3_t][atom2_t][atom1_t] = pho;
+      break;
+    
+    case 7:
       atom1_t = atoi(words[1]);
       atom2_t = atoi(words[2]);
-      k_Efield[atom1_t][atom2_t][center_t] = atof(words[3]);
-      k_Efield[atom2_t][atom1_t][center_t] = atof(words[3]);
+      pho = atof(words[3]);
+      k_Efield[atom1_t][atom2_t][center_t] = pho;
+      k_Efield[atom2_t][atom1_t][center_t] = pho;
       break;
     }
   }
@@ -949,10 +1036,11 @@ int FixFResp::count_total_bonds() {
 }
 
 /* ---------------------------------------------------------------------- 
-   deltaq array is updated
+   deltaq array is updated considering electric field polarization
+     contribution
    ---------------------------------------------------------------------- */
  
-void FixFResp::deltaq_update(bigint molecule, int atom1_t, int atom2_t, 
+void FixFResp::deltaq_update_Efield(bigint molecule, int atom1_t, int atom2_t, 
   double Eparallel) {
   bigint i, global_center, center;
   int center_t;
@@ -973,11 +1061,12 @@ void FixFResp::deltaq_update(bigint molecule, int atom1_t, int atom2_t,
 }
 
 /* ---------------------------------------------------------------------- 
-   deltaq array is updated, also considering bond stretching contributions
+   deltaq array is updated considering bond stretching polarization
+     contributions
    ---------------------------------------------------------------------- */
  
-void FixFResp::deltaq_update(bigint molecule, int atom1_t, int atom2_t, 
-  double Eparallel, double dr) {
+void FixFResp::deltaq_update_bond(bigint molecule, int atom1_t, int atom2_t, 
+  double dr) {
   bigint i, global_center, center;
   int center_t;
   double k;
@@ -989,13 +1078,61 @@ void FixFResp::deltaq_update(bigint molecule, int atom1_t, int atom2_t,
     global_center = mol_map[molecule - 1][i];
     center = atom->map((int)global_center);
     center_t = types[global_center - 1];
-    k = k_Efield[atom1_t][atom2_t][center_t];
-    //Charge variation are put in deltaq instead of atom->q in order to
-    //permit their communication to other processes
-    deltaq[center] += k * Eparallel;
     k = k_bond[atom1_t][atom2_t][center_t];
     //Charge variation are put in deltaq instead of atom->q in order to
     //permit their communication to other processes
     deltaq[center] += k * dr;
+  }
+}
+
+/* ---------------------------------------------------------------------- 
+   deltaq array is updated considering angle bending polarization
+     contribution
+   ---------------------------------------------------------------------- */
+ 
+void FixFResp::deltaq_update_angle(bigint molecule, int atom1_t, int atom2_t, 
+  int atom3_t, double da) {
+  bigint i, global_center, center;
+  int center_t;
+  double k;
+  
+  //The cycle is done over all the atoms contained in the same molecule of
+  //the angle
+  #pragma vector
+  for (i = 1; i <= mol_map[molecule - 1][0]; i++) {
+    global_center = mol_map[molecule - 1][i];
+    center = atom->map((int)global_center);
+    center_t = types[global_center - 1];
+    k = k_angle[atom1_t][atom2_t][atom3_t][center_t];
+    //Charge variation are put in deltaq instead of atom->q in order to
+    //permit their communication to other processes
+    deltaq[center] += k * da;
+  }
+}
+
+/* ---------------------------------------------------------------------- 
+   deltaq array is updated considering improper change polarization
+     contribution
+   ---------------------------------------------------------------------- */
+ 
+void FixFResp::deltaq_update_improper(bigint molecule, int atom1_t, int atom2_t, 
+  int atom3_t, int atom4_t, double absim) {
+  bigint i, global_center, center;
+  int center_t;
+  double k, im0, dim;
+  
+  //The cycle is done over all the atoms contained in the same molecule of
+  //the improper
+  #pragma vector
+  for (i = 1; i <= mol_map[molecule - 1][0]; i++) {
+    global_center = mol_map[molecule - 1][i];
+    center = atom->map((int)global_center);
+    center_t = types[global_center - 1];
+    k = k_improper[atom1_t][atom2_t][atom3_t][atom4_t][center_t];
+    im0 = phi0_improper[atom1_t][atom2_t][atom3_t][atom4_t];
+    dim = absim - im0;
+    //Charge variation are put in deltaq instead of atom->q in order to
+    //permit their communication to other processes
+    deltaq[center] += k * dim;
   }
 }
