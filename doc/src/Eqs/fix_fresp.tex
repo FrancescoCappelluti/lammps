@@ -1,11 +1,15 @@
-\documentclass[12pt]{standalone}
-\usepackage{varwidth}
+\documentclass[12pt]{article}
 
 \begin{document}
-  \begin{varwidth}{50in}
-  $$
-    q_{i} = q_{i}^{0} + \sum_{b \in M_{i}} \alpha_{b}^{i}
+
+  \begin{eqnarray*}
+    q_{j} = q_{j}^{0} + \sum_{b \in M_{j}} \alpha_{b}^{j}
     \vec{E}^{fic} \left( \vec{r}_{h_{b}} \right) \cdot \hat{r}_{b}
-  $$
-  \end{varwidth}
+    + \sum_{b \in M_{j}} \kappa_{b}^{j} \left(\left|\vec{r}_{b}\right|
+    - r_{b}^{0}\right) \\
+    + \sum_{a \in M_{j}} \kappa_{a}^{j} \left(\beta_{a} -
+    \beta_{a}^{0}\right) + \sum_{i \in M_{j}} \kappa_{i}^{j} \left(\left| 
+    \phi_{i}\right| - \phi_{i}^{0}\right)
+  \end{eqnarray*}
+
 \end{document}

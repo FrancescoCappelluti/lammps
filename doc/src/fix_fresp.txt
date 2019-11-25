@@ -17,7 +17,7 @@ fix ID group-ID style Nevery cutoff3 alpha filename1 filename2 keyword ... :pre
 
 ID, group-ID are documented in "fix"_fix.html command :ulb,l
 style = {fresp/ewald} or {fresp/dsf} or {fresp/mdsf} :l
-Nevery = perform charge update every this many steps (currently Nevery always equal 1) :l
+Nevery = perform charge update every this many steps :l
 cutoff3 = cutoff for fictitious electric field calculation (distance unit) :l
 filename1 = name of the file containing the mapping between global atomic indexes and F-RESP types :l
 filename2 = name of the file containing F-RESP parameters used for charge update :l
@@ -89,10 +89,19 @@ F-RESP types start from 0.
 1 qgen_1
 ...
 #k_Efield
-i j k l
+i p q k
 ...
 #k_bond
-i j k m
+i p q k
+...
+#k_angle
+i p q r k
+...
+#k_improper
+i p q r s k
+...
+#phi_improper
+p q r s d
 ... :pre
 
 
@@ -100,19 +109,21 @@ i j k m
 {q0_1} = q0 charge of the second (1) F-RESP type
 {qgen_0} = qgen charge of the first (0) F-RESP type
 {qgen_1} = qgen charge of the second (1) F-RESP type
-{i} = F-RESP type of one extreme of the bond
-{j} = F-RESP type of the other extreme of the bond
-{k} = F-RESP type of the atom whose charge is influenced by the previous defined bond (only if contained in the same molecule)
-{l} = value of the coefficient connecting fictitious electric field projection along bond and charge variation
-{m} = value of the coefficient connecting stretching of the bond from its natural value and charge variation :ul
+{i} = F-RESP type of the atom whose charge is influenced (only if the subsequently defined geometric descriptor is contained in the same molecule)
+{p} = F-RESP type of the first atom in the definition of the descriptor (bond, angle, improper)
+{q} = F-RESP type of the second atom in the definition of the descriptor
+{r} = F-RESP type of the third atom in the definition of the descriptor
+{s} = F-RESP type of the fourth atom in the definition of the descriptor
+{k} = value of the coefficient connecting charge variation and geometric distorsion (or electric field projection) in the previously defined geometric descriptor
+{d} = natural value of the improper angle (in degrees) :ul
 
-As it is clear from the previous lines, charges of atoms with F-RESP type {k} 
-will depend on all bonds between atoms with F-RESP types {i} and {j} contained 
-in the same molecule. 
+As it is clear from the previous lines, charges of atoms with a given F-RESP type 
+will depend on all geometric descriptors between atoms with F-RESP types listed
+in the previous lines contained in the same molecule. 
 Following from this, equivalence in current F-RESP implementation is more strict 
-than classical chemical equivalence and bonds that are chemically equivalent 
-could not have the same F-RESP types for their extremes if the charge variation 
-effects they will produce are not wanted to be the same.
+than classical chemical equivalence and bonds, angles and impropers that are
+chemically equivalent could not have the same F-RESP types for their extremes
+if the charge variation effects they will produce are not wanted to be the same.
 
 The {fresp/ewald} style calculates the fictitious electric field over 
 bonds by using "(Ewald)"_#Ewald1 summation technique.
