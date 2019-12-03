@@ -1639,12 +1639,13 @@ void FixFRespEwald::post_neighbor()
   //initialized as pointing to NULL.
   if (nbond_old != j) {
     nbond_old = j;
-    memory->destroy(bond_extremes_pos);
+    //memory->destroy(bond_extremes_pos);
+    memory->grow(bond_extremes_pos, nbond_old, 2, "fresp:bond_extremes_pos");
     free(dEr_vals);
     free(dEr_indexes);
     dEr_vals = (double***) calloc(nbond_old, sizeof(double**));
     dEr_indexes = (tagint***) calloc(nbond_old, sizeof(tagint**));
-    memory->create(bond_extremes_pos, nbond_old, 2, "fresp:bond_extremes_pos");
+    //memory->create(bond_extremes_pos, nbond_old, 2, "fresp:bond_extremes_pos");
     for (i = 0; i < nbond_old; i++) {
       dEr_vals[i] = NULL;
       dEr_indexes[i] = NULL;

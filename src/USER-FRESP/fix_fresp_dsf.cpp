@@ -385,12 +385,13 @@ void FixFRespDsf::post_neighbor()
     //initialized as pointing to NULL.
     if (nbond_old != j) {
       nbond_old = j;
-      memory->destroy(bond_extremes_pos);
+      //memory->destroy(bond_extremes_pos);
+      memory->grow(bond_extremes_pos, nbond_old, 2, "fresp:bond_extremes_pos");
       free(dEr_vals);
       free(dEr_indexes);
       dEr_vals = (double***) calloc(nbond_old, sizeof(double**));
       dEr_indexes = (tagint***) calloc(nbond_old, sizeof(tagint**));
-      memory->create(bond_extremes_pos, nbond_old, 2, "fresp:bond_extremes_pos");
+      //memory->create(bond_extremes_pos, nbond_old, 2, "fresp:bond_extremes_pos");
       for (i = 0; i < nbond_old; i++) {
         dEr_vals[i] = NULL;
         dEr_indexes[i] = NULL;
@@ -621,12 +622,18 @@ void FixFRespDsf::force_update_Efield_bond()
           deltaf[2] -= dEr_vals[bond][i][2] * alpha_tot_pot;
         }
         if (bondflag && (i == atom1_pos || i == atom2_pos)) {
-          //if atom2 is considered, the sign of bond length derivative has
-          //to be reversed
-          if (i == atom2_pos) kb_tot_pot *= -1.0;
-          deltaf[0] -= db_vals[bond][0] * kb_tot_pot;
-          deltaf[1] -= db_vals[bond][1] * kb_tot_pot;
-          deltaf[2] -= db_vals[bond][2] * kb_tot_pot;
+          if (i == atom1_pos) {
+            deltaf[0] -= db_vals[bond][0] * kb_tot_pot;
+            deltaf[1] -= db_vals[bond][1] * kb_tot_pot;
+            deltaf[2] -= db_vals[bond][2] * kb_tot_pot;
+          }
+          else if (i == atom2_pos) {
+            //if atom2 is considered, the sign of bond length derivative has
+            //to be reversed
+            deltaf[0] += db_vals[bond][0] * kb_tot_pot;
+            deltaf[1] += db_vals[bond][1] * kb_tot_pot;
+            deltaf[2] += db_vals[bond][2] * kb_tot_pot;
+          }
         }
         MathExtra::add3(atom->f[der_atom], deltaf, atom->f[der_atom]);
 

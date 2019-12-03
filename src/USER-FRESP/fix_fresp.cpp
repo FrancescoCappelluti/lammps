@@ -165,10 +165,11 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
 
   q0 = qgen = NULL;
   k_bond = k_Efield = NULL;
-  k_angle = NULL;
+  k_angle = phi0_improper = NULL;
   k_dihedral = k_improper = NULL;
  
-  bondflag = angleflag = dihedralflag = improperflag = Efieldflag = 0;
+  bondflag = angleflag = dihedralflag = improperflag = phi0improperflag=
+    Efieldflag = 0;
 
   pack_flag = 0;
 
@@ -220,17 +221,19 @@ FixFResp::~FixFResp() {
   for (i = 0; i < nmolecules; i++) free(mol_map[i]);
   free(mol_map);
   memory->destroy(deltaq);
-  for (i = 0; i < nbond_old; i++) {
-    memory->destroy(dEr_vals[i]);
-    end = dEr_indexes[i][0][0];
-    for (j = 0; j <= end; j++) free(dEr_indexes[i][j]);
-    memory->sfree(dEr_indexes[i]);
+  if (Efieldflag || bondflag) {
+    for (i = 0; i < nbond_old; i++) {
+      memory->destroy(dEr_vals[i]);
+      end = dEr_indexes[i][0][0];
+      for (j = 0; j <= end; j++) free(dEr_indexes[i][j]);
+      memory->sfree(dEr_indexes[i]);
+    }
+    memory->destroy(bond_extremes_pos);
+    free(dEr_vals);
+    free(dEr_indexes);
   }
-  free(dEr_vals);
-  free(dEr_indexes);
-  memory->destroy(dimp_vals);
-  memory->destroy(da_vals);
-  memory->destroy(bond_extremes_pos);
+  if (improperflag) memory->destroy(dimp_vals);
+  if (angleflag) memory->destroy(da_vals);
   modify->delete_compute(id_pe);
 
 }
@@ -545,7 +548,7 @@ void FixFResp::q_update_improper()
   bigint atom1, atom2, atom3, atom4, global_atom1, global_atom2;
   bigint global_atom3, global_atom4, molecule;
   int improper, atom1_t, atom2_t, atom3_t, atom4_t, itype;
-  double im, absim, im0;
+  double im, absim;
   double rij[3], rkj[3], rik[3], rkl[3], rjl[3], casnafn[3], dasnafn;
   double pref, a[3], b[3], afn[3], asn[3], af[3], as[3], afd, asd; 
   double cosim, cosimas[3], cosimaf[3], dcosimdri[3], dcosimdrl[3];
@@ -793,9 +796,7 @@ void FixFResp::read_file(char *file)
         for (i = 0; i < natypes; i++) {
           for (j = 0; j < natypes; j++) {
             for (k = 0; k < natypes; k++) {
-              for (l = 0; l < natypes; l++) {
-                  phi0_improper[i][j][k][l] = 0.0;
-              }
+              for (l = 0; l < natypes; l++) phi0_improper[i][j][k][l] = 180.0;
             }
           }
         }
@@ -888,7 +889,7 @@ void FixFResp::read_file(char *file)
       atom2_t = atoi(words[1]);
       atom3_t = atoi(words[2]);
       atom4_t = atoi(words[3]);
-      //phi0 is converted from radians to degrees
+      //phi is converted from degrees to radians
       pho = atof(words[4]) * deg2rad;
       phi0_improper[atom1_t][atom2_t][atom3_t][atom4_t] = pho;
       phi0_improper[atom4_t][atom3_t][atom2_t][atom1_t] = pho;
