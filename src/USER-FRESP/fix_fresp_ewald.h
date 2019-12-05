@@ -45,8 +45,8 @@ class FixFRespEwald : public FixFResp {
  private:
   void ewald_allocate();
   void ewald_deallocate();
-  void ewald_init(); //initialize Ewald sums for long range Efield calculation
-  void ewald_setup(); //setup of Ewald sums for long range Efield calculation
+  void ewald_init(); //Initialize Ewald sums for long range Efield calculation
+  void ewald_setup(); //Setup of Ewald sums for long range Efield calculation
   void ewald_coeffs();
   void ewald_qsum_qsq();
   void ewald_coeffs_triclinic();

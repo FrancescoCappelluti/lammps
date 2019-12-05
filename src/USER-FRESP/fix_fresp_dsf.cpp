@@ -57,7 +57,7 @@ FixFRespDsf::FixFRespDsf(LAMMPS *lmp, int narg, char **arg) :
   
   int iarg = 8;
   
-  //else if are needed in order not to have segfault when trying to access
+  //else ifs are needed in order not to have segfault when trying to access
   //elements outside arg
   while (iarg < narg) {
     if ((arg[iarg] - strchr(arg[iarg], '#')) == 0) break;
@@ -73,22 +73,22 @@ FixFRespDsf::FixFRespDsf(LAMMPS *lmp, int narg, char **arg) :
     }
   }
 
-  //check for sane arguments
+  //Check for sane arguments
   if ((nevery <= 0) || (cutoff1 < 0.0 || cutoff2 < 0.0 || cutoff3 <= 0.0))
     error->all(FLERR,"Illegal fix fresp command");
 
   nmax = 0;
 
-  //read FRESP types file
+  //Read FRESP types file
   read_file_types(arg[6]);
 
-  //create an array where q0 is associated with atom global indexes
+  //Create an array where q0 is associated with atom global indexes
   memory->create(q0, natypes, "fresp:q0");
   
-  //create an array where qgen is associated with atom global indexes
+  //Create an array where qgen is associated with atom global indexes
   memory->create(qgen, natypes, "fresp:qgen");
 
-  //read FRESP parameters file
+  //Read FRESP parameters file
   read_file(arg[7]);
 }
 
@@ -222,7 +222,7 @@ void FixFRespDsf::q_update_Efield_bond()
           MathExtra::scale3(bondrvmprod * rvminv * pref, ddamping);
           pref *= damping;
           MathExtra::add3(ddamping, dEr_vals[bond][i], dEr_vals[bond][i]);
-          //derivative of damping function for atom1 and atom2 is calculated
+          //Derivative of damping function for atom1 and atom2 is calculated
           //(simply half the opposite of the previous one) and multiplied times
           //undamped Efield
           MathExtra::scale3(-0.5, ddamping);
@@ -276,7 +276,6 @@ void FixFRespDsf::q_update_Efield_bond()
 
     if (bondflag) {
       r0 = force->bond->equilibrium_distance(neighbor->bondlist[bond][2]);
-      //deltaq_update(molecule, atom1_t, atom2_t, Eparallel, bondvl - r0);
       wstalin = bondvl - r0;
 
       db_vals[bond][0] = bondv[0] * bondvinv;
@@ -285,7 +284,6 @@ void FixFRespDsf::q_update_Efield_bond()
 
       deltaq_update_bond(molecule, atom1_t, atom2_t, wstalin);
     }
-    //else deltaq_update(molecule, atom1_t, atom2_t, Eparallel);
   }
 }
 
@@ -300,11 +298,11 @@ void FixFRespDsf::setup_pre_force(int vflag)
   memory->create(deltaq, nmax, "fresp:deltaq");
 
   if (Efieldflag || bondflag) {
-    //using count_total_bonds(), bonds "freezed" by SHAKE are considered too,
+    //Using count_total_bonds(), bonds "freezed" by SHAKE are considered too,
     //otherwise than using nbondlist
     nbond_old = count_total_bonds();
 
-    //an array of nbond double** is allocated in order to store the values of
+    //An array of nbond double** is allocated in order to store the values of
     //derivatives of E_R * bond unit vector
     //an array of nbond tagint* is allocated in order to store the indexes of
     //atoms wrt the derivatives of dEr_vals are done
@@ -342,7 +340,7 @@ void FixFRespDsf::setup_pre_force(int vflag)
     memory->create(dimp_vals, nimproper_old, 4, 3, "fresp:dimp_vals");
   }
 
-  //Build new neighbor lists needed by F-RESP
+  //Building of new neighbor lists needed by F-RESP
   neighbor->build_one(list);
 
   if (Efieldflag || bondflag) {
@@ -385,13 +383,11 @@ void FixFRespDsf::post_neighbor()
     //initialized as pointing to NULL.
     if (nbond_old != j) {
       nbond_old = j;
-      //memory->destroy(bond_extremes_pos);
       memory->grow(bond_extremes_pos, nbond_old, 2, "fresp:bond_extremes_pos");
       free(dEr_vals);
       free(dEr_indexes);
       dEr_vals = (double***) calloc(nbond_old, sizeof(double**));
       dEr_indexes = (tagint***) calloc(nbond_old, sizeof(tagint**));
-      //memory->create(bond_extremes_pos, nbond_old, 2, "fresp:bond_extremes_pos");
       for (i = 0; i < nbond_old; i++) {
         dEr_vals[i] = NULL;
         dEr_indexes[i] = NULL;
@@ -411,7 +407,7 @@ void FixFRespDsf::post_neighbor()
     memory->grow(dimp_vals, nimproper_old, 4, 3, "fresp:dimp_vals");
   }
 
-  //Build new neighbor lists needed by F-RESP
+  //Building of new neighbor lists needed by F-RESP
   neighbor->build_one(list);
 
   if (Efieldflag || bondflag) {
@@ -474,7 +470,7 @@ void FixFRespDsf::pre_reverse(int eflag, int vflag)
 {
   if (update->ntimestep % nevery) return;
 
-  // energy and virial setup
+  //Energy and virial setup
   if (vflag) v_setup(vflag);
   else evflag = 0;
 
@@ -578,7 +574,7 @@ void FixFRespDsf::force_update_Efield_bond()
 
   //Contributions from electric field and bond stretching could be separed,
   //therefore permitting to calculate bond stretching contribution only
-  //fron non-constrained bonds, differently from the current implementation TODO
+  //for non-constrained bonds, differently from the current implementation
   for (bond = 0; bond < nbond_old; bond++) {
     atom1 = dEr_indexes[bond][0][1];
     global_atom1 = atom->tag[atom1];
@@ -628,7 +624,7 @@ void FixFRespDsf::force_update_Efield_bond()
             deltaf[2] -= db_vals[bond][2] * kb_tot_pot;
           }
           else if (i == atom2_pos) {
-            //if atom2 is considered, the sign of bond length derivative has
+            //If atom2 is considered, the sign of bond length derivative has
             //to be reversed
             deltaf[0] += db_vals[bond][0] * kb_tot_pot;
             deltaf[1] += db_vals[bond][1] * kb_tot_pot;

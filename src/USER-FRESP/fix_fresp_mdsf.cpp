@@ -172,7 +172,7 @@ void FixFRespMDsf::q_update_Efield_bond()
           MathExtra::scale3(bondrvmprod * rvminv * pref, ddamping);
           pref *= damping;
           MathExtra::add3(ddamping, dEr_vals[bond][i], dEr_vals[bond][i]);
-          //derivative of damping function for atom1 and atom2 is calculated
+          //Derivative of damping function for atom1 and atom2 is calculated
           //(simply half the opposite of the previous one) and multiplied times
           //undamped Efield
           MathExtra::scale3(-0.5, ddamping);
@@ -226,7 +226,6 @@ void FixFRespMDsf::q_update_Efield_bond()
 
     if (bondflag) {
       r0 = force->bond->equilibrium_distance(neighbor->bondlist[bond][2]);
-      //deltaq_update(molecule, atom1_t, atom2_t, Eparallel, bondvl - r0);
       wlenin = bondvl - r0;
 
       db_vals[bond][0] = bondv[0] * bondvinv;
@@ -235,6 +234,5 @@ void FixFRespMDsf::q_update_Efield_bond()
 
       deltaq_update_bond(molecule, atom1_t, atom2_t, wlenin);
     }
-    //else deltaq_update(molecule, atom1_t, atom2_t, Eparallel);
   }
 }
