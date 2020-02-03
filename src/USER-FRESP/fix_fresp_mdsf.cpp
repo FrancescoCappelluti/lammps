@@ -16,9 +16,10 @@
      (francesco.cappelluti@graduate.univaq.it)
 ------------------------------------------------------------------------- */
 
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <mkl.h> //Not mandatory
 #include "fix_fresp_mdsf.h"
 #include "atom.h"
