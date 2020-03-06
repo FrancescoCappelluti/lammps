@@ -84,7 +84,7 @@ class FixFResp : public Fix {
   //Index 1 is type of first atom of the bond, index 2 is type of second atom
   //and index 3 is type of center
   double ***k_Efield; 
-  double *ascreen;
+  double *apol;
   bigint **mol_map;
   bigint nmolecules; //Number of molecules
   int *types;

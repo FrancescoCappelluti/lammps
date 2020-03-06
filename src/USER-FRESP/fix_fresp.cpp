@@ -163,7 +163,7 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
   }
   free(counter);
 
-  q0 = qgen = ascreen = NULL;
+  q0 = qgen = apol = NULL;
   k_bond = k_Efield = NULL;
   k_angle = phi0_improper = NULL;
   k_dihedral = k_improper = NULL;
@@ -823,7 +823,7 @@ void FixFResp::read_file(char *file)
 
         //Create an array where atom polarizability is associated with
 	//atom global indexes
-        if (!ascreen) memory->create(ascreen, natypes, "fresp:ascreen");
+        if (!apol) memory->create(apol, natypes, "fresp:apol");
 	parseflag = 8;
       }
       //continue;
@@ -911,12 +911,14 @@ void FixFResp::read_file(char *file)
       break;
     
     case 8:
-      //scaling coefficient is considered to be 2.6 / a**(1/3),
-      //as stated in lammps.sandia.gov/doc/pair_thole.html
-      ascreen[center_t] = 2.6 / cbrt(atof(words[1]));
+      apol[center_t] = atof(words[1]);
       break;
     }
   }
+
+  if (!apol && (dampflag == THO))
+    error->all(FLERR, "Atomic polarizabilities have to be defined in FRESP \
+      parameters file in order to use Thole damping");
 
   delete [] words;
 }

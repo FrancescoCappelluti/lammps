@@ -41,7 +41,7 @@ class FixFRespDsf : public FixFResp {
 
  protected:
   void q_update_Efield_bond();
-  double Efield_damping(double, double *, int);
+  double Efield_damping(double, double *, int, int, int);
   void force_update_Efield_bond();
   void force_update_angle();
   void force_update_improper();
