@@ -163,7 +163,7 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
   }
   free(counter);
 
-  q0 = qgen = NULL;
+  q0 = qgen = ascreen = NULL;
   k_bond = k_Efield = NULL;
   k_angle = phi0_improper = NULL;
   k_dihedral = k_improper = NULL;
@@ -819,6 +819,13 @@ void FixFResp::read_file(char *file)
         Efieldflag =  true;
         
       }
+      else if ((ptr = strstr(line, "atom_pol"))) {
+
+        //Create an array where atom polarizability is associated with
+	//atom global indexes
+        if (!ascreen) memory->create(ascreen, natypes, "fresp:ascreen");
+	parseflag = 8;
+      }
       //continue;
       *ptr = '\0'; // ??
     }
@@ -901,6 +908,12 @@ void FixFResp::read_file(char *file)
       pho = atof(words[3]);
       k_Efield[atom1_t][atom2_t][center_t] = pho;
       k_Efield[atom2_t][atom1_t][center_t] = pho;
+      break;
+    
+    case 8:
+      //scaling coefficient is considered to be 2.6 / a**(1/3),
+      //as stated in lammps.sandia.gov/doc/pair_thole.html
+      ascreen[center_t] = 2.6 / cbrt(atof(words[1]));
       break;
     }
   }

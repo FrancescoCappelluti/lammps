@@ -58,7 +58,7 @@ void FixFRespMDsf::q_update_Efield_bond()
   double  bondvl, bondvinv, bondvinvsq, pref, q_gen; 
   bigint atom1, atom2, center, global_center, global_atom1, global_atom2;
   bigint molecule;
-  int atom1_t, atom2_t, i, iplusone, bond, atom1_pos, atom2_pos;
+  int atom1_t, atom2_t, i, iplusone, bond, atom1_pos, atom2_pos, ftyp;
   double bondv[3], wlenin, E[3], Efield[3], Eparallel, rvmlsq, partialerfc;
   double grij, expm2, fsp, ssp, tsp, betaexp;
   double ddamping[3];
@@ -151,7 +151,8 @@ void FixFRespMDsf::q_update_Efield_bond()
         rvminvsq = rvminv * rvminv;
         MathExtra::copy3(rvm, Efield);
         grij = g_ewald * rvml;
-        q_gen = qgen[types[global_center - 1]];
+	ftyp = types[global_center - 1];
+        q_gen = qgen[ftyp];
         bondrvmprod = MathExtra::dot3(bondv, rvm);
         expm2 = MathSpecial::expmsq(grij);
         partialerfc = MathSpecial::my_erfcx(grij);
@@ -166,7 +167,7 @@ void FixFRespMDsf::q_update_Efield_bond()
 
         if (rvml < cutoff2 && dampflag > 0) {
           MathExtra::copy3(rvm, ddamping);
-          damping = Efield_damping(rvml, ddamping);
+          damping = Efield_damping(rvml, ddamping, ftyp);
           //tsp is multiplied times damping. Because pref too will
           //be multiplied times damping, the whole Efield derivative is damped.
           tsp *= damping;

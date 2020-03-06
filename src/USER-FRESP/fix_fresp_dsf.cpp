@@ -65,6 +65,11 @@ FixFRespDsf::FixFRespDsf(LAMMPS *lmp, int narg, char **arg) :
     else if (strcmp(arg[iarg], "damp") == 0) {
       if (strcmp(arg[++iarg], "exp") == 0) dampflag = EXP;
       else if (strcmp(arg[iarg], "sin") == 0) dampflag = SIN;
+      else if (strcmp(arg[iarg], "tho") == 0) {
+        dampflag = THO;
+	iarg++;
+	continue;
+      }
       cutoff1 = force->numeric(FLERR, arg[++iarg]);
       cutoff2 = force->numeric(FLERR, arg[++iarg]);
       iarg++;
@@ -109,7 +114,7 @@ void FixFRespDsf::q_update_Efield_bond()
   double  bondvl, bondvinv, bondvinvsq, pref, q_gen; 
   bigint atom1, atom2, center, global_center, global_atom1, global_atom2;
   bigint molecule;
-  int atom1_t, atom2_t, i, iplusone, bond, atom1_pos, atom2_pos;
+  int atom1_t, atom2_t, i, iplusone, bond, atom1_pos, atom2_pos, ftyp;
   double bondv[3], wstalin, E[3], Efield[3], Eparallel, rvmlsq, partialerfc;
   double grij, expm2, fsp, ssp, tsp;
   double ddamping[3];
@@ -202,7 +207,8 @@ void FixFRespDsf::q_update_Efield_bond()
         rvminvsq = rvminv * rvminv;
         MathExtra::copy3(rvm, Efield);
         grij = g_ewald * rvml;
-        q_gen = qgen[types[global_center - 1]];
+	ftyp = types[global_center - 1];
+        q_gen = qgen[ftyp];
         bondrvmprod = MathExtra::dot3(bondv, rvm);
         expm2 = MathSpecial::expmsq(grij);
         partialerfc = MathSpecial::my_erfcx(grij);
@@ -216,7 +222,7 @@ void FixFRespDsf::q_update_Efield_bond()
 
         if (rvml < cutoff2 && dampflag > 0) {
           MathExtra::copy3(rvm, ddamping);
-          damping = Efield_damping(rvml, ddamping);
+          damping = Efield_damping(rvml, ddamping, ftyp);
           //tsp is multiplied times damping. Because pref too will
           //be multiplied times damping, the whole Efield derivative is damped.
           tsp *= damping;
@@ -533,7 +539,7 @@ double FixFRespDsf::memory_usage()
   filled
    ---------------------------------------------------------------------- */
 
-double FixFRespDsf::Efield_damping(double r, double *dampvec)
+double FixFRespDsf::Efield_damping(double r, double *dampvec, int jtype = 0)
 {
   static double c1invsq = 1.0 / (cutoff1 * cutoff1), cdiff = cutoff2 - cutoff1;
   if (dampflag == EXP) {
@@ -553,6 +559,13 @@ double FixFRespDsf::Efield_damping(double r, double *dampvec)
     #endif
     MathExtra::scale3(-sin_part * cos_part * piocdiff, dampvec);
     return sin_part * sin_part;
+  }
+  else if (dampflag == THO) {
+    double s = ascreen[jtype];
+    double shalf = 0.5 * s;
+    double exp_part = MathSpecial::fm_exp(-s * r);
+    MathExtra::scale3(-shalf * exp_part * (1. + 1. / r), dampvec);
+    return 1. - (1. + shalf * r) * exp_part;
   }
   MathExtra::scale3(0.0, dampvec);
   return 1.0;

@@ -84,6 +84,7 @@ class FixFResp : public Fix {
   //Index 1 is type of first atom of the bond, index 2 is type of second atom
   //and index 3 is type of center
   double ***k_Efield; 
+  double *ascreen;
   bigint **mol_map;
   bigint nmolecules; //Number of molecules
   int *types;
@@ -156,7 +157,7 @@ class FixFResp : public Fix {
   void deltaq_update_improper(bigint molecule, int atom1_t, int atom2_t, \
   int atom3_t, int atom4_t, double absim);
   double beta; //Needed by fix_fresp_mdsf
-  enum damp {NONE, EXP, SIN} dampflg;
+  enum damp {NONE, EXP, SIN, THO} dampflg;
   inline int sbmask(int j) const {
     return j >> SBBITS & 3;
   }
