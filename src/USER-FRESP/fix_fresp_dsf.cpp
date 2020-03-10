@@ -48,6 +48,8 @@ using namespace FixConst;
 FixFRespDsf::FixFRespDsf(LAMMPS *lmp, int narg, char **arg) :
   FixFResp(lmp, narg, arg)
 {
+  double bpol;
+
   thermo_virial = 1; //Enables virial contribution
   qsqsum = 1.0; //Declared here because not accessible from force->kspace
   dampflag = NONE;
@@ -96,6 +98,18 @@ FixFRespDsf::FixFRespDsf(LAMMPS *lmp, int narg, char **arg) :
 
   //Read FRESP parameters file
   read_file(arg[7]);
+
+  //Calculate partial scaling coefficients for bonds to be used by
+  //Thole damping function
+  if (dampflag == THO) {
+    memory->create(thobscal, natypes, natypes, "fresp:thobscal");
+    for (int i = 0; i < natypes; i++)
+      for (int j = 0; j < natypes; j++) {
+        bpol = abs(k_Efield[i][j][i]);
+        thobscal[i][j] = 2.6 / pow(bpol, SIXTH);
+        thobscal[j][i] = 2.6 / pow(bpol, SIXTH);
+      }
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -561,14 +575,11 @@ double FixFRespDsf::Efield_damping(double r, double *dampvec, int center_t = 0, 
     return sin_part * sin_part;
   }
   else if (dampflag == THO) {
-    //polarizabiliy for bond is considered, as in Krawczuk et al., to be the
-    //sum of the isotropic polarizabilities of the atom defining it
-    double aj = apol[center_t], ab = apol[atom1_t] + apol[atom2_t];
-      //scaling coefficient is considered to be 2.6 / ((a1*a2)**0.5)**1/3,
-      //as stated in lammps.sandia.gov/doc/pair_thole.html
-    double s = 2.6 / cbrt(sqrt(aj * ab));
-    double shalf = s * 0.5;
+    //polarizability for bond is taken from k_Efield
+    double sj = thoascal[center_t], sb = thobscal[atom1_t][atom2_t];
+    double s = sj * sb;
     double exp_part = MathSpecial::fm_exp(-s * r);
+    double shalf = s * 0.5;
     MathExtra::scale3(-shalf * exp_part * (1. + 1. / r), dampvec);
     return 1. - (1. + shalf * r) * exp_part;
   }

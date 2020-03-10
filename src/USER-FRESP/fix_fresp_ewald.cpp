@@ -70,8 +70,8 @@ FixFRespEwald::FixFRespEwald(LAMMPS *lmp, int narg, char **arg) :
       iarg++;
     }
     else if (strcmp(arg[iarg], "damp") == 0) {
-      if (strcmp(arg[++iarg], "sin") == 0) dampflag = 1;
-      else if (strcmp(arg[iarg], "exp") == 0) dampflag = 0;
+      if (strcmp(arg[++iarg], "sin") == 0) dampflag = SIN;
+      else if (strcmp(arg[iarg], "exp") == 0) dampflag = EXP;
       cutoff1 = force->numeric(FLERR, arg[++iarg]);
       cutoff2 = force->numeric(FLERR, arg[++iarg]);
       iarg++;

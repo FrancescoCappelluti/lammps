@@ -163,7 +163,8 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
   }
   free(counter);
 
-  q0 = qgen = apol = NULL;
+  q0 = qgen = thoascal = NULL;
+  thobscal = NULL;
   k_bond = k_Efield = NULL;
   k_angle = phi0_improper = NULL;
   k_dihedral = k_improper = NULL;
@@ -235,7 +236,8 @@ FixFResp::~FixFResp() {
   if (improperflag) memory->destroy(dimp_vals);
   if (angleflag) memory->destroy(da_vals);
   modify->delete_compute(id_pe);
-
+  if (thoascal) memory->destroy(thoascal);
+  if (thobscal) memory->destroy(thobscal);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -679,7 +681,7 @@ void FixFResp::read_file(char *file)
 {
   int parseflag = -1, params_per_line = 6, atom1_t, atom2_t, atom3_t,
     atom4_t, center_t;
-  double pho;
+  double pho, apol;
   FILE *fp;
   char **words = new char*[params_per_line+1];
   int nwords, eof, i, j, k, l, m, n;
@@ -823,7 +825,7 @@ void FixFResp::read_file(char *file)
 
         //Create an array where atom polarizability is associated with
 	//atom global indexes
-        if (!apol) memory->create(apol, natypes, "fresp:apol");
+        if (!thoascal) memory->create(thoascal, natypes, "fresp:thoascal");
 	parseflag = 8;
       }
       //continue;
@@ -911,12 +913,16 @@ void FixFResp::read_file(char *file)
       break;
     
     case 8:
-      apol[center_t] = atof(words[1]);
+      apol = atof(words[1]);
+      //Atomic polarizabilities are stored as 2.6 / a**(1/6) because they
+      //will always be used in this form in the calculation of s coefficient,
+      //as stated in lammps.sandia.gov/doc/pair_thole.html
+      thoascal[center_t] = 2.6 / pow(apol, SIXTH);
       break;
     }
   }
 
-  if (!apol && (dampflag == THO))
+  if (!thoascal && (dampflag == THO))
     error->all(FLERR, "Atomic polarizabilities have to be defined in FRESP \
       parameters file in order to use Thole damping");
 
