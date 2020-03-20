@@ -106,8 +106,9 @@ FixFRespDsf::FixFRespDsf(LAMMPS *lmp, int narg, char **arg) :
     for (int i = 0; i < natypes; i++)
       for (int j = 0; j < natypes; j++) {
         bpol = abs(k_Efield[i][j][i]);
-        thobscal[i][j] = 2.6 / pow(bpol, SIXTH);
-        thobscal[j][i] = 2.6 / pow(bpol, SIXTH);
+        //Bond polarizabilities are stored as 1.0 / a**(1/6)
+        thobscal[i][j] = pow(bpol, -SIXTH);
+        thobscal[j][i] = pow(bpol, -SIXTH);
       }
   }
 }

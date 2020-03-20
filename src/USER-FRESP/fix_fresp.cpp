@@ -917,7 +917,7 @@ void FixFResp::read_file(char *file)
       //Atomic polarizabilities are stored as 2.6 / a**(1/6) because they
       //will always be used in this form in the calculation of s coefficient,
       //as stated in lammps.sandia.gov/doc/pair_thole.html
-      thoascal[center_t] = 2.6 / pow(apol, SIXTH);
+      thoascal[center_t] = 2.6 * pow(apol, -SIXTH);
       break;
     }
   }
