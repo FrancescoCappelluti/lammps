@@ -840,7 +840,7 @@ void FixFResp::read_file(char *file)
     words[nwords++] = strtok(line," \t\n\r\f");
     while ((words[nwords++] = strtok(NULL," \t\n\r\f"))) continue;
 
-    center_t = atoi(words[0]);
+    center_t = atoi(words[0]) - 1;
 
     switch (parseflag) {
     
@@ -853,27 +853,27 @@ void FixFResp::read_file(char *file)
       break;
 
     case 2:
-      atom1_t = atoi(words[1]);
-      atom2_t = atoi(words[2]);
+      atom1_t = atoi(words[1]) - 1;
+      atom2_t = atoi(words[2]) - 1;
       pho = atof(words[3]);
       k_bond[atom1_t][atom2_t][center_t] = pho;
       k_bond[atom2_t][atom1_t][center_t] = pho;
       break;
 
     case 3:
-      atom1_t = atoi(words[1]);
-      atom2_t = atoi(words[2]);
-      atom3_t = atoi(words[3]);
+      atom1_t = atoi(words[1]) - 1;
+      atom2_t = atoi(words[2]) - 1;
+      atom3_t = atoi(words[3]) - 1;
       pho = atof(words[4]);
       k_angle[atom1_t][atom2_t][atom3_t][center_t] = pho;
       k_angle[atom3_t][atom2_t][atom1_t][center_t] = pho;
       break;
       
     case 4:
-      atom1_t = atoi(words[1]);
-      atom2_t = atoi(words[2]);
-      atom3_t = atoi(words[3]);
-      atom4_t = atoi(words[4]);
+      atom1_t = atoi(words[1]) - 1;
+      atom2_t = atoi(words[2]) - 1;
+      atom3_t = atoi(words[3]) - 1;
+      atom4_t = atoi(words[4]) - 1;
       pho = atof(words[5]);
       k_dihedral[atom1_t][atom2_t][atom3_t][atom4_t][center_t] =
         pho;
@@ -882,10 +882,10 @@ void FixFResp::read_file(char *file)
       break;
     
     case 5:
-      atom1_t = atoi(words[1]);
-      atom2_t = atoi(words[2]);
-      atom3_t = atoi(words[3]);
-      atom4_t = atoi(words[4]);
+      atom1_t = atoi(words[1]) - 1;
+      atom2_t = atoi(words[2]) - 1;
+      atom3_t = atoi(words[3]) - 1;
+      atom4_t = atoi(words[4]) - 1;
       pho = atof(words[5]);
       k_improper[atom1_t][atom2_t][atom3_t][atom4_t][center_t] =
         pho;
@@ -895,9 +895,9 @@ void FixFResp::read_file(char *file)
     
     case 6:
       atom1_t = center_t;
-      atom2_t = atoi(words[1]);
-      atom3_t = atoi(words[2]);
-      atom4_t = atoi(words[3]);
+      atom2_t = atoi(words[1]) - 1;
+      atom3_t = atoi(words[2]) - 1;
+      atom4_t = atoi(words[3]) - 1;
       //phi is converted from degrees to radians
       pho = atof(words[4]) * deg2rad;
       phi0_improper[atom1_t][atom2_t][atom3_t][atom4_t] = pho;
@@ -905,8 +905,8 @@ void FixFResp::read_file(char *file)
       break;
     
     case 7:
-      atom1_t = atoi(words[1]);
-      atom2_t = atoi(words[2]);
+      atom1_t = atoi(words[1]) - 1;
+      atom2_t = atoi(words[2]) - 1;
       pho = atof(words[3]);
       k_Efield[atom1_t][atom2_t][center_t] = pho;
       k_Efield[atom2_t][atom1_t][center_t] = pho;
@@ -992,7 +992,7 @@ void FixFResp::read_file_types(char *file)
  
       case 1:      
         center = atoi(words[0]) - 1;
-        types[center] = atoi(words[1]);
+        types[center] = atoi(words[1]) - 1;
         break;
     }
 
