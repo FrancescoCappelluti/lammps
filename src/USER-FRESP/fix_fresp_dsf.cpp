@@ -57,7 +57,7 @@ FixFRespDsf::FixFRespDsf(LAMMPS *lmp, int narg, char **arg) :
   if (narg < 8 || narg > 13) error->all(FLERR,"Illegal fix fresp command");
 
   g_ewald = force->numeric(FLERR, arg[5]);
-  
+
   int iarg = 8;
   
   //else ifs are needed in order not to have segfault when trying to access
@@ -105,7 +105,7 @@ FixFRespDsf::FixFRespDsf(LAMMPS *lmp, int narg, char **arg) :
     memory->create(thobscal, natypes, natypes, "fresp:thobscal");
     for (int i = 0; i < natypes; i++)
       for (int j = 0; j < natypes; j++) {
-        bpol = abs(k_Efield[i][j][i]);
+        bpol = fabs(k_Efield[i][j][i]);
         //Bond polarizabilities are stored as 1.0 / a**(1/6)
         thobscal[i][j] = pow(bpol, -SIXTH);
         thobscal[j][i] = pow(bpol, -SIXTH);
@@ -551,7 +551,7 @@ double FixFRespDsf::memory_usage()
 
 /* ---------------------------------------------------------------------- 
   Damping factor is returned and derivative of damping function is partially
-  filled
+  filled (rjhb / |rjhb| factor will be added subsequently)
    ---------------------------------------------------------------------- */
 
 double FixFRespDsf::Efield_damping(double r, double *dampvec, int center_t = 0, int atom1_t = 0, int atom2_t = 0)
@@ -576,13 +576,12 @@ double FixFRespDsf::Efield_damping(double r, double *dampvec, int center_t = 0, 
     return sin_part * sin_part;
   }
   else if (dampflag == THO) {
-    //polarizability for bond is taken from k_Efield
-    double sj = thoascal[center_t], sb = thobscal[atom1_t][atom2_t];
-    double s = sj * sb;
-    double exp_part = MathSpecial::fm_exp(-s * r);
-    double shalf = s * 0.5;
-    MathExtra::scale3(-shalf * exp_part * (1. + 1. / r), dampvec);
-    return 1. - (1. + shalf * r) * exp_part;
+    //s is the product of s_atom * s_half_bond
+    double s = thoascal[center_t] * thobscal[atom1_t][atom2_t];
+    double sr = s * r;
+    double exp_part = MathSpecial::fm_exp(-sr);
+    MathExtra::scale3(-0.5 * s * exp_part * (1. + sr), dampvec);
+    return 1. - (1. + 0.5 * sr) * exp_part;
   }
   MathExtra::scale3(0.0, dampvec);
   return 1.0;

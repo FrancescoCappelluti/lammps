@@ -69,7 +69,11 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
   dampflag = -1;
   printEfieldflag = 0;
   nmolecules = 0;
-  average_mol_size = cutoff1 = cutoff2 = 0.0;
+  average_mol_size = cutoff1 = 0.0;
+  //This is needed in order to access in the damping calculation part
+  //of function q_update_Efield_bond even when Thole damping (that
+  //doesen't set cutoff2 value) is employed
+  cutoff2 = 1e10;
 
   if (!force->newton_bond)
     error->all(FLERR,"Fix fresp can be used only with newton_bond on \
