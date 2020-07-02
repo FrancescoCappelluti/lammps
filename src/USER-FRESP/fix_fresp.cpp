@@ -835,7 +835,7 @@ void FixFResp::read_file(char *file)
       //continue;
       *ptr = '\0'; // ??
     }
-    nwords = utils::count_words(line);
+    nwords = utils::trim_and_count_words(line);
     if (nwords == 0) continue;
 
     // words = ptrs to all words in line
@@ -979,7 +979,7 @@ void FixFResp::read_file_types(char *file)
       else if ((ptr = strstr(line, "atypes"))) parseflag = 1;
       //*ptr = '\0';
     }
-    nwords = utils::count_words(line);
+    nwords = utils::trim_and_count_words(line);
     if (nwords == 0) continue;
 
     // words = ptrs to all words in line
