@@ -20,7 +20,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#ifdef LMP_USE_MKL_RNG
 #include <mkl.h> //Not mandatory
+#endif
 #include "fix_fresp_dsf.h"
 #include "atom.h"
 #include "bond.h"
@@ -566,7 +568,7 @@ double FixFRespDsf::Efield_damping(double r, double *dampvec, int center_t = 0, 
   else if (dampflag == SIN) {
     static double piocdiff = MathConst::MY_PI / cdiff;
     double sin_part, cos_part, arg = 0.5 * piocdiff * (r - cutoff1);
-    #ifdef __INTEL_MKL__
+    #ifdef LMP_USE_MKL_RNG
     vdSinCos(1, &arg, &sin_part, &cos_part);
     #else
     sin_part = sin(arg);

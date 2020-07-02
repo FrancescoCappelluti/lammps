@@ -20,7 +20,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#ifdef LMP_USE_MKL_RNG
 #include <mkl.h> //Not mandatory
+#endif
 #include "fix_fresp_ewald.h"
 #include "atom.h"
 #include "bond.h"
@@ -619,7 +621,7 @@ void FixFRespEwald::ewald_eik_dot_r_qgen()
         charge = qgen[types[atom->tag[i] - 1]];
         cs_qgen[0][ic][i] = 1.0;
         sn_qgen[0][ic][i] = 0.0;
-        #ifdef __INTEL_MKL__
+        #ifdef LMP_USE_MKL_RNG
         arg = unitk[ic] * x[i][ic];
         vdSinCos(1, &arg, &sn_qgen[1][ic][i], &cs_qgen[1][ic][i]);
         #else
@@ -845,7 +847,7 @@ void FixFRespEwald::ewald_eik_dot_r_triclinic_qgen()
       for (i = 0; i < nlocal; i++) {
         cs_qgen[0][ic][i] = 1.0;
         sn_qgen[0][ic][i] = 0.0;
-        #ifdef __INTEL_MKL__
+        #ifdef LMP_USE_MKL_RNG
         arg = unitk_lamda[0]*x[i][0] + unitk_lamda[1]*x[i][1] +
           unitk_lamda[2]*x[i][2];
         vdSinCos(1, &arg, &sn_qgen[1][ic][i], &cs_qgen[1][ic][i]);
@@ -1140,7 +1142,7 @@ void FixFRespEwald::ewald_setup()
     ewald_coeffs_triclinic();
 
   //Arrays used by BLAS functions in reciprocal space part of q_update_Efield
-  #ifdef __INTEL_MKL__
+  #ifdef LMP_USE_MKL_RNG
   memory->grow(bondvskprod_vec, kcount, "fresp:bondkprod_vec");
   memory->grow(xmkprod_vec, kcount, "fresp:xmkprod_vec");
   memory->grow(Im_xm_vec, kcount, "fresp:Im_xm_vec");
@@ -1229,7 +1231,7 @@ void FixFRespEwald::q_update_Efield_bond()
     bondv[0] = x[atom1][0] - x[atom2][0];
     bondv[1] = x[atom1][1] - x[atom2][1];
     bondv[2] = x[atom1][2] - x[atom2][2];
-    #ifdef __INTEL_MKL__
+    #ifdef LMP_USE_MKL_RNG
     bondvl = cblas_dnrm2(3, bondv, 1);
     #else
     bondvl = MathExtra::len3(bondv);
@@ -1242,7 +1244,7 @@ void FixFRespEwald::q_update_Efield_bond()
 
       double E_R_perbond = 0.0, E_B_perbond = 0.0, E_K_perbond = 0.0;
 
-      #ifdef __INTEL_MKL__
+      #ifdef LMP_USE_MKL_RNG
       cblas_dcopy(3, x[atom1], 1, xm, 1);
       vdAdd(3, x[atom2], xm, xm);
       cblas_dscal(3, 0.5, xm, 1);
@@ -1271,7 +1273,7 @@ void FixFRespEwald::q_update_Efield_bond()
         global_center = atom->tag[center];
         //molflag = 1 if center is in the same molecule, 0 otherwise
         molflag = atom->molecule[center] == molecule;
-        #ifdef __INTEL_MKL__
+        #ifdef LMP_USE_MKL_RNG
         vdSub(3, xm, x[center], rvm);
         domain->minimum_image(rvm[0], rvm[1], rvm[2]);
         
@@ -1310,7 +1312,7 @@ void FixFRespEwald::q_update_Efield_bond()
         dEr_indexes[bond][i + 1][1] = (tagint) 1;
 
         bondrvmprod = MathExtra::dot3(bondv, rvm);
-        #ifdef __INTEL_MKL__
+        #ifdef LMP_USE_MKL_RNG
         bondrvmprod = cblas_ddot(3, bondv, 1, rvm, 1);
         cblas_dcopy(3, rvm, 1, E_R, 1);
         rvml = cblas_dnrm2(3, rvm, 1);
@@ -1333,8 +1335,8 @@ void FixFRespEwald::q_update_Efield_bond()
         MathExtra::copy3(bondvs, bondvs_red);
         MathExtra::scale3(bondvinv, bondvs_red);
         grij = g_ewald * rvml;
-        expm2 = expmsq(grij);
-        erfc = expm2 * my_erfcx(grij);
+        expm2 = MathSpecial::expmsq(grij);
+        erfc = expm2 * MathSpecial::my_erfcx(grij);
         #endif
         rvminvsq = rvminv * rvminv;
         rvminvcu = rvminvsq * rvminv;
@@ -1347,7 +1349,7 @@ void FixFRespEwald::q_update_Efield_bond()
           if (rvml < cutoff2) {
             damping = Efield_damping(dampflag, rvml, cutoff1, cutoff2);
             //Damping function derivative is initialized as rvmvs
-            #ifdef __INTEL_MKL__
+            #ifdef LMP_USE_MKL_RNG
             cblas_dcopy(3, rvmvs, 1, ddamping, 1);
             if (dampflag == 0)
               cblas_dscal(3, ((rvml - cutoff2) / (cutoff1 * cutoff1)) *
@@ -1369,7 +1371,7 @@ void FixFRespEwald::q_update_Efield_bond()
             //E_Rpar and dEr_par are scaled
             E_Rpar *= damping;
             dEr_par *= damping;
-            #ifdef __INTEL_MKL__
+            #ifdef LMP_USE_MKL_RNG
             vdAdd(3, ddamping, dEr_vals[bond][i], dEr_vals[bond][i]);
             //Derivative of damping function for atom1 and atom2 is calculated
             //(simply half the opposite of the previous one) and multiplied
@@ -1391,7 +1393,7 @@ void FixFRespEwald::q_update_Efield_bond()
               dEr_vals[bond][atom2_pos]);
             #endif
           }
-          #ifdef __INTEL_MKL__
+          #ifdef LMP_USE_MKL_RNG
           cblas_dscal(3, E_Rpar, E_R, 1);
           E_R_perbond += cblas_ddot(3, E_R, 1, bondvs, 1);
           #else
@@ -1406,7 +1408,7 @@ void FixFRespEwald::q_update_Efield_bond()
           dEr_par = qgen[types[global_center - 1]] * rvminv * bondvinv *
             (3.0 * rvminvcu * (1.0 - erfc) - TWO_OVER_SQPI * g_ewald * expm2 *
             (3.0 * rvminvsq + 2.0 * g_ewald * g_ewald)); 
-          #ifdef __INTEL_MKL__
+          #ifdef LMP_USE_MKL_RNG
           cblas_dscal(3, E_Rpar, E_R, 1);
           E_B_perbond += cblas_ddot(3, E_R, 1, bondvs, 1);
           #else
@@ -1418,7 +1420,7 @@ void FixFRespEwald::q_update_Efield_bond()
         E_Rpar_red = E_Rpar * bondvinv;
         first_half[0] = -bondrvmprod * dEr_par;
         MathExtra::add3(E, E_R, E);
-        #ifdef __INTEL_MKL__
+        #ifdef LMP_USE_MKL_RNG
         //dEr_vals/d(dEr_indexes[i][0]) components are calculated
         cblas_daxpy(3, first_half[0], rvmvs, 1, dEr_vals[bond][i], 1);
         cblas_daxpy(3, -E_Rpar, bondvs, 1, dEr_vals[bond][i], 1);
@@ -1752,7 +1754,7 @@ void FixFRespEwald::pre_reverse(int eflag, int vflag)
         bondv[0] = atom->x[atom1][0] - atom->x[atom2][0];
         bondv[1] = atom->x[atom1][1] - atom->x[atom2][1];
         bondv[2] = atom->x[atom1][2] - atom->x[atom2][2];
-        #ifdef __INTEL_MKL__
+        #ifdef LMP_USE_MKL_RNG
         bondvinv = 1.0 / cblas_dnrm2(3, bondv, 1);
         #else
         bondvinv = 1.0 / MathExtra::len3(bondv);
@@ -1807,7 +1809,7 @@ void FixFRespEwald::pre_reverse(int eflag, int vflag)
             v_tally(der_atom, v);
           }*/
         }
-        #ifdef __INTEL_MKL__
+        #ifdef LMP_USE_MKL_RNG
         mkl_domatadd('r', 'n', 'n', kcount, 6, alpha_tot_pot, &appo2[bond][0][0],
           6, 1.0, &appo3[0][0], 6, &appo3[0][0], 6);
         #else
@@ -1836,7 +1838,7 @@ void FixFRespEwald::pre_reverse(int eflag, int vflag)
       for (k = 0; k < kcount; k++) {
         arg = kxvecs[k] * premul[0] + kyvecs[k] * premul[1] + kzvecs[k] *
         premul[2];
-        #ifdef __INTEL_MKL__
+        #ifdef LMP_USE_MKL_RNG
         vdSinCos(1, &arg, &Im_xi, &Re_xi);
         #else
         Re_xi = cos(arg);
@@ -1878,7 +1880,7 @@ double FixFRespEwald::memory_usage()
     for (bond = 0; bond < nbond_old; bond ++)
       bytes += dEr_indexes[bond][0][0] * (2 * (sizeof(tagint) + sizeof(bigint)
       + 3 * sizeof(double))) + 3 * sizeof(bigint);
-    #ifdef __INTEL_MKL__
+    #ifdef LMP_USE_MKL_RNG
     //arrays used for BLAS functions in reciprocal space part of q_update_Efield
     bytes += 10 * kcount * sizeof(double);
     #endif

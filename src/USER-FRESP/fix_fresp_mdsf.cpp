@@ -20,7 +20,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <mkl.h> //Not mandatory
 #include "fix_fresp_mdsf.h"
 #include "atom.h"
 #include "bond.h"

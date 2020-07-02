@@ -20,7 +20,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <mkl.h> //Not mandatory
 #include "fix_fresp.h"
 #include "angle.h"
 #include "atom.h"
@@ -43,6 +42,7 @@
 #include "error.h"
 #include "math_extra.h"
 #include "kspace.h"
+#include "utils.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -835,7 +835,7 @@ void FixFResp::read_file(char *file)
       //continue;
       *ptr = '\0'; // ??
     }
-    nwords = atom->count_words(line);
+    nwords = utils::count_words(line);
     if (nwords == 0) continue;
 
     // words = ptrs to all words in line
@@ -979,7 +979,7 @@ void FixFResp::read_file_types(char *file)
       else if ((ptr = strstr(line, "atypes"))) parseflag = 1;
       //*ptr = '\0';
     }
-    nwords = atom->count_words(line);
+    nwords = utils::count_words(line);
     if (nwords == 0) continue;
 
     // words = ptrs to all words in line
