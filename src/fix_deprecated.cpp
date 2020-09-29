@@ -12,10 +12,10 @@
 ------------------------------------------------------------------------- */
 
 #include "fix_deprecated.h"
-#include <string>
+
 #include "comm.h"
 #include "error.h"
-#include "utils.h"
+
 
 using namespace LAMMPS_NS;
 
@@ -43,6 +43,5 @@ FixDeprecated::FixDeprecated(LAMMPS *lmp, int narg, char **arg) :
                      "compute chunk/atom:\n  dim, origin, delta, region, "
                      "bound, discard, units\n\n");
   }
-
-  lmp->error->all(FLERR,"This fix style is no longer available");
+  error->all(FLERR,"This fix style is no longer available");
 }

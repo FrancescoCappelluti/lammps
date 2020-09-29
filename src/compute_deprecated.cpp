@@ -12,10 +12,9 @@
 ------------------------------------------------------------------------- */
 
 #include "compute_deprecated.h"
-#include <string>
+
 #include "comm.h"
 #include "error.h"
-#include "utils.h"
 
 using namespace LAMMPS_NS;
 
@@ -31,6 +30,5 @@ ComputeDeprecated::ComputeDeprecated(LAMMPS *lmp, int narg, char **arg) :
       utils::logmesg(lmp,"\nCompute style 'DEPRECATED' is a dummy style\n\n");
     return;
   }
-
-  lmp->error->all(FLERR,"This compute style is no longer available");
+  error->all(FLERR,"This compute style is no longer available");
 }

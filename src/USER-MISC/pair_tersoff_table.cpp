@@ -21,9 +21,9 @@
 ------------------------------------------------------------------------- */
 
 #include "pair_tersoff_table.h"
-#include <mpi.h>
+
 #include <cmath>
-#include <cstdlib>
+
 #include <cstring>
 #include "atom.h"
 #include "neighbor.h"
@@ -32,7 +32,7 @@
 #include "force.h"
 #include "comm.h"
 #include "memory.h"
-#include "utils.h"
+
 #include "tokenizer.h"
 #include "potential_file_reader.h"
 
@@ -755,7 +755,7 @@ void PairTersoffTable::coeff(int narg, char **arg)
     error->all(FLERR,"Incorrect args for pair coefficients");
 
   // read args that map atom types to elements in potential file
-  // map[i] = which element the Ith atom type is, -1 if NULL
+  // map[i] = which element the Ith atom type is, -1 if "NULL"
   // nelements = # of unique elements
   // elements = list of element names
 
@@ -764,7 +764,7 @@ void PairTersoffTable::coeff(int narg, char **arg)
     delete [] elements;
   }
   elements = new char*[atom->ntypes];
-  for (i = 0; i < atom->ntypes; i++) elements[i] = NULL;
+  for (i = 0; i < atom->ntypes; i++) elements[i] = nullptr;
 
   nelements = 0;
   for (i = 3; i < narg; i++) {
@@ -850,7 +850,7 @@ void PairTersoffTable::read_file(char *file)
   // open file on proc 0
 
   if (comm->me == 0) {
-    PotentialFileReader reader(lmp, file, "TersoffTable", unit_convert_flag);
+    PotentialFileReader reader(lmp, file, "tersoff/table", unit_convert_flag);
     char *line;
 
     // transparently convert units for supported conversions
@@ -890,6 +890,11 @@ void PairTersoffTable::read_file(char *file)
           maxparam += DELTA;
           params = (Param *) memory->srealloc(params,maxparam*sizeof(Param),
                                               "pair:params");
+
+          // make certain all addional allocated storage is initialized
+          // to avoid false positives when checking with valgrind
+
+          memset(params + nparams, 0, DELTA*sizeof(Param));
         }
 
         // some parameters are not used since only Tersoff_2 is implemented
@@ -918,7 +923,7 @@ void PairTersoffTable::read_file(char *file)
           params[nparams].biga *= conversion_factor;
           params[nparams].bigb *= conversion_factor;
         }
-      } catch (TokenizerException & e) {
+      } catch (TokenizerException &e) {
         error->one(FLERR, e.what());
       }
 

@@ -17,10 +17,11 @@
 
 #include "fix_nvt_body.h"
 #include <cstring>
-#include <string>
+
 #include "group.h"
 #include "modify.h"
 #include "error.h"
+
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -42,6 +43,7 @@ FixNVTBody::FixNVTBody(LAMMPS *lmp, int narg, char **arg) :
   id_temp = new char[tcmd.size()+1];
   strcpy(id_temp,tcmd.c_str());
 
-  modify->add_compute(tcmd + " all temp/body");
+  tcmd += fmt::format(" {} temp/body",group->names[igroup]);
+  modify->add_compute(tcmd);
   tcomputeflag = 1;
 }

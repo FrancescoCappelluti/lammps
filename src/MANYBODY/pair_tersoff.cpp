@@ -16,24 +16,22 @@
 ------------------------------------------------------------------------- */
 
 #include "pair_tersoff.h"
-#include <mpi.h>
-#include <cmath>
-#include <cstdlib>
-#include <cstring>
-#include "atom.h"
-#include "neighbor.h"
-#include "neigh_list.h"
-#include "neigh_request.h"
-#include "force.h"
-#include "comm.h"
-#include "memory.h"
-#include "error.h"
-#include "utils.h"
-#include "tokenizer.h"
-#include "potential_file_reader.h"
 
+#include "atom.h"
+#include "comm.h"
+#include "error.h"
+#include "force.h"
 #include "math_const.h"
 #include "math_special.h"
+#include "memory.h"
+#include "neigh_list.h"
+#include "neigh_request.h"
+#include "neighbor.h"
+#include "potential_file_reader.h"
+#include "tokenizer.h"
+
+#include <cmath>
+#include <cstring>
 
 using namespace LAMMPS_NS;
 using namespace MathConst;
@@ -52,14 +50,14 @@ PairTersoff::PairTersoff(LAMMPS *lmp) : Pair(lmp)
   unit_convert_flag = utils::get_supported_conversions(utils::ENERGY);
 
   nelements = 0;
-  elements = NULL;
+  elements = nullptr;
   nparams = maxparam = 0;
-  params = NULL;
-  elem2param = NULL;
-  map = NULL;
+  params = nullptr;
+  elem2param = nullptr;
+  map = nullptr;
 
   maxshort = 10;
-  neighshort = NULL;
+  neighshort = nullptr;
 }
 
 /* ----------------------------------------------------------------------
@@ -308,7 +306,7 @@ void PairTersoff::coeff(int narg, char **arg)
     error->all(FLERR,"Incorrect args for pair coefficients");
 
   // read args that map atom types to elements in potential file
-  // map[i] = which element the Ith atom type is, -1 if NULL
+  // map[i] = which element the Ith atom type is, -1 if "NULL"
   // nelements = # of unique elements
   // elements = list of element names
 
@@ -317,7 +315,7 @@ void PairTersoff::coeff(int narg, char **arg)
     delete [] elements;
   }
   elements = new char*[atom->ntypes];
-  for (i = 0; i < atom->ntypes; i++) elements[i] = NULL;
+  for (i = 0; i < atom->ntypes; i++) elements[i] = nullptr;
 
   nelements = 0;
   for (i = 3; i < narg; i++) {
@@ -401,7 +399,7 @@ void PairTersoff::read_file(char *file)
   // open file on proc 0
 
   if (comm->me == 0) {
-    PotentialFileReader reader(lmp, file, "Tersoff", unit_convert_flag);
+    PotentialFileReader reader(lmp, file, "tersoff", unit_convert_flag);
     char *line;
 
     // transparently convert units for supported conversions
@@ -438,6 +436,11 @@ void PairTersoff::read_file(char *file)
           maxparam += DELTA;
           params = (Param *) memory->srealloc(params,maxparam*sizeof(Param),
                                               "pair:params");
+
+          // make certain all addional allocated storage is initialized
+          // to avoid false positives when checking with valgrind
+
+          memset(params + nparams, 0, DELTA*sizeof(Param));
         }
 
         params[nparams].ielement  = ielement;
@@ -463,7 +466,7 @@ void PairTersoff::read_file(char *file)
           params[nparams].biga *= conversion_factor;
           params[nparams].bigb *= conversion_factor;
         }
-      } catch (TokenizerException & e) {
+      } catch (TokenizerException &e) {
         error->one(FLERR, e.what());
       }
 

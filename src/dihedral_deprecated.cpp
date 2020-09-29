@@ -16,12 +16,12 @@
 ------------------------------------------------------------------------- */
 
 #include "dihedral_deprecated.h"
-#include <string>
-#include "dihedral_hybrid.h"
+
 #include "comm.h"
-#include "force.h"
+#include "dihedral_hybrid.h"
 #include "error.h"
-#include "utils.h"
+#include "force.h"
+
 
 using namespace LAMMPS_NS;
 
@@ -45,6 +45,5 @@ void DihedralDeprecated::settings(int, char **)
       utils::logmesg(lmp,"\nDihedral style 'DEPRECATED' is a dummy style\n\n");
     return;
   }
-
-  lmp->error->all(FLERR,"This dihedral style is no longer available");
+  error->all(FLERR,"This dihedral style is no longer available");
 }
