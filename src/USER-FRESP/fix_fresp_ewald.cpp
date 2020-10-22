@@ -61,21 +61,21 @@ FixFRespEwald::FixFRespEwald(LAMMPS *lmp, int narg, char **arg) :
   while (iarg < narg) {
     if (strcmp(arg[iarg], "gewald") == 0) {
       gewaldflag = 0;
-      g_ewald = force->numeric(FLERR, arg[++iarg]);
+      g_ewald = utils::numeric(FLERR, arg[++iarg], false, lmp);
       iarg++;
     }
     else if (strcmp(arg[iarg], "kmax") == 0) {
       kewaldflag = 0;
-      kxmax = force->inumeric(FLERR, arg[++iarg]);
-      kymax = force->inumeric(FLERR, arg[++iarg]);
-      kzmax = force->inumeric(FLERR, arg[++iarg]);
+      kxmax = utils::inumeric(FLERR, arg[++iarg], false, lmp);
+      kymax = utils::inumeric(FLERR, arg[++iarg], false, lmp);
+      kzmax = utils::inumeric(FLERR, arg[++iarg], false, lmp);
       iarg++;
     }
     else if (strcmp(arg[iarg], "damp") == 0) {
       if (strcmp(arg[++iarg], "sin") == 0) dampflag = SIN;
       else if (strcmp(arg[iarg], "exp") == 0) dampflag = EXP;
-      cutoff1 = force->numeric(FLERR, arg[++iarg]);
-      cutoff2 = force->numeric(FLERR, arg[++iarg]);
+      cutoff1 = utils::numeric(FLERR, arg[++iarg], false, lmp);
+      cutoff2 = utils::numeric(FLERR, arg[++iarg], false, lmp);
       iarg++;
     }
     else if (strcmp(arg[iarg++], "printEfield") == 0) {

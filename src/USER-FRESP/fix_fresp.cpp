@@ -84,8 +84,8 @@ FixFResp::FixFResp(LAMMPS *lmp, int narg, char **arg) :
   //  error->all(FLERR,"Fix fresp can be used only with ewald kspace_style
   //    (for the moment)");
 
-  nevery = force->inumeric(FLERR,arg[3]);
-  cutoff3 = force->numeric(FLERR,arg[4]);
+  nevery = utils::inumeric(FLERR,arg[3],false,lmp);
+  cutoff3 = utils::numeric(FLERR,arg[4],false,lmp);
 
   //give the maximum dimension of data communicated per atom
   comm_forward = 1;
@@ -695,7 +695,7 @@ void FixFResp::read_file(char *file)
   eof = 0;
  
   if (comm->me == 0) {
-    fp = force->open_potential(file);
+    fp = utils::open_potential(file, lmp, nullptr);
     if (fp == NULL) {
       char str[128];
       sprintf(str,"Cannot open fix fresp parameter file %s", file);
@@ -944,7 +944,7 @@ void FixFResp::read_file_types(char *file)
   char **words = new char*[params_per_line+1];
   
   if (comm->me == 0) {
-    fp = force->open_potential(file);
+    fp = utils::open_potential(file, lmp, nullptr);
     if (fp == NULL) {
       char str[128];
       sprintf(str,"Cannot open fix fresp types file %s",file);

@@ -58,7 +58,7 @@ FixFRespDsf::FixFRespDsf(LAMMPS *lmp, int narg, char **arg) :
 
   if (narg < 8 || narg > 13) error->all(FLERR,"Illegal fix fresp command");
 
-  g_ewald = force->numeric(FLERR, arg[5]);
+  g_ewald = utils::numeric(FLERR, arg[5], false, lmp);
 
   int iarg = 8;
   
@@ -74,8 +74,8 @@ FixFRespDsf::FixFRespDsf(LAMMPS *lmp, int narg, char **arg) :
 	iarg++;
 	continue;
       }
-      cutoff1 = force->numeric(FLERR, arg[++iarg]);
-      cutoff2 = force->numeric(FLERR, arg[++iarg]);
+      cutoff1 = utils::numeric(FLERR, arg[++iarg], false, lmp);
+      cutoff2 = utils::numeric(FLERR, arg[++iarg], false, lmp);
       iarg++;
     }
     else if (strcmp(arg[iarg++], "printEfield") == 0) {
